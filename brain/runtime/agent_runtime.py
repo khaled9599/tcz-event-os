@@ -187,6 +187,69 @@ class DeterministicSpatialRuntime:
         )
 
 
+class DeterministicProductionRuntime:
+    """Offline production engineering review for buildability and takeoff impacts."""
+
+    def execute(self, request: AgentExecutionRequest) -> AgentResult:
+        task = request.task
+        proposed = request.context.authoritative_state.get("proposed", {})
+        impact_output = request.context.prior_outputs.get("T-IMPACT", {}).get("outputs", {})
+        spatial_output = request.context.prior_outputs.get("T-SPATIAL", {}).get("outputs", {})
+        height_mm = spatial_output.get("height_mm", proposed.get("height_mm"))
+        height_delta_mm = spatial_output.get("height_delta_mm", impact_output.get("height_delta_mm"))
+
+        outputs = {
+            "buildability_review": {
+                "status": "requires_detailing",
+                "summary": "Entrance height increase is buildable in concept but requires production detailing before release.",
+                "checks": [
+                    "confirm panel/module proportions after 5500mm height change",
+                    "verify base/foundation interface is unchanged or explicitly revised",
+                    "separate temporary-structure engineering signoff from production approval",
+                ],
+            },
+            "material_takeoff_impact": {
+                "height_mm": height_mm,
+                "height_delta_mm": height_delta_mm,
+                "quantity_status": "stale_until_remeasured",
+                "affected_items": [
+                    "entrance cladding or scenic skin",
+                    "primary frame members",
+                    "secondary support/bracing",
+                    "finish area and paint/coating quantities",
+                ],
+            },
+            "cost_schedule_flags": [
+                "material quantities require recalculation",
+                "fabrication drawings must be revised",
+                "installation method statement may need revision",
+                "schedule allowance should be reviewed after rigging signoff",
+            ],
+            "approval_gate": {
+                "level": "L2",
+                "reason": "Production state, quantities, cost, and schedule may change.",
+            },
+            "structural_signoff_boundary": "Production review does not replace qualified rigging or structural signoff.",
+            "context_id": request.context.context_id,
+        }
+        return AgentResult(
+            task_id=task.task_id,
+            agent_id=task.assigned_agent,
+            summary="Production review flags stale quantities, buildability detailing, and separate structural signoff.",
+            outputs=outputs,
+            evidence_refs=[request.context.context_id],
+            assumptions=[
+                "No fabrication documents are mutated by this deterministic review.",
+                "Final quantities require updated geometry or CAD/Blender measurement.",
+            ],
+            risks=[
+                "Quantity, cost, and schedule artifacts remain stale until production updates are completed.",
+                "Structural implications must be reviewed by the rigging/qualified engineering path.",
+            ],
+            requires_human_decision=False,
+        )
+
+
 class DelegatingAgentRuntime:
     """Route selected tasks to a specialist runtime and keep the rest deterministic."""
 

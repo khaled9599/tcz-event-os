@@ -50,3 +50,11 @@ Run impact plus spatial response:
 ```bash
 python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --until-task T-SPATIAL --output full --output-file work/spatial_chain_result.json
 ```
+
+Run through the production approval gate:
+
+```bash
+python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --until-task T-PRODUCTION --approval-file work/production_approvals.json
+```
+
+This pauses at L2 approval before executing the production review.

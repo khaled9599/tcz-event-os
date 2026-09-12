@@ -91,3 +91,27 @@ def test_cli_can_run_through_spatial_task():
     assert spatial.outputs["height_mm"] == 5500
     assert spatial.outputs["height_delta_mm"] == 1300
     assert "approved clear opening must be retained" in spatial.outputs["preserved_constraints"]
+
+
+def test_cli_pauses_at_production_approval_gate_then_resumes(tmp_path):
+    approval_file = tmp_path / "production_approvals.json"
+    result = run_scenario(SCENARIO, until_task="T-PRODUCTION", approval_file=approval_file)
+
+    assert result.run.phase == RunPhase.APPROVE
+    assert result.committed_state is None
+    assert [packet.required_level for packet in result.approvals] == ["L2"]
+
+    data = json.loads(approval_file.read_text())
+    data["decisions"] = {
+        approval_id: "approved"
+        for approval_id in data["decisions"]
+    }
+    approval_file.write_text(json.dumps(data))
+
+    resumed = resume_approval_file(approval_file)
+    production = resumed.agent_results["T-PRODUCTION"]
+
+    assert resumed.run.phase == RunPhase.COMPLETED
+    assert list(resumed.agent_results) == ["T-IMPACT", "T-SPATIAL", "T-PRODUCTION"]
+    assert production.outputs["approval_gate"]["level"] == "L2"
+    assert production.outputs["material_takeoff_impact"]["quantity_status"] == "stale_until_remeasured"

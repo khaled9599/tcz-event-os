@@ -18,6 +18,7 @@ from brain.runtime.agent_runtime import (
     AgentResult,
     DelegatingAgentRuntime,
     DeterministicImpactRuntime,
+    DeterministicProductionRuntime,
     DeterministicSpatialRuntime,
 )
 from brain.runtime.openai_agents_adapter import OpenAIImpactRuntime
@@ -210,6 +211,7 @@ def _build_runtime(runtime_name: str):
         return DelegatingAgentRuntime({
             "T-IMPACT": DeterministicImpactRuntime(),
             "T-SPATIAL": DeterministicSpatialRuntime(),
+            "T-PRODUCTION": DeterministicProductionRuntime(),
         })
     if runtime_name == "openai-impact":
         return DelegatingAgentRuntime({"T-IMPACT": OpenAIImpactRuntime()})
