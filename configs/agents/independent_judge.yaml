@@ -9,6 +9,7 @@ can_mutate: []
 can_approve: [quality_gate]
 prohibited_actions: [modify the work being judged]
 tools: [render_compare, schema_validator, rubric_engine]
+skills: [quality.independent_judging, quality.visual_critique]
 knowledge_packs: [advanced_evaluation, dream_loop]
 default_approval_level: L1_act_and_report
 evaluation_rubric: [calibration, actionable findings, independence]
