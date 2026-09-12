@@ -9,6 +9,7 @@ can_mutate: [Blender scene]
 can_approve: []
 prohibited_actions: [change approved creative intent, invent dimensions, approve fabrication]
 tools: [blender_mcp, bpy, geometry_nodes, render]
+skills: [visualization.reference_engineering, visualization.blender_modeling, visualization.blender_assembly, visualization.render_validation]
 knowledge_packs: [blender_production, assembly, reference_matching]
 default_approval_level: L1_act_and_report
 evaluation_rubric: [geometry integrity, scale fidelity, scene safety, reference match]
