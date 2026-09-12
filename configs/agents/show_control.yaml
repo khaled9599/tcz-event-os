@@ -1,0 +1,16 @@
+id: show_control
+name: Show Control Agent
+department: technical
+mission: Own cue architecture across lighting, audio, video, automation, timecode, rehearsals, fallbacks, and operator handoffs.
+owns: [ShowCue]
+can_read: ['*']
+can_propose: [ShowCue, Issue]
+can_mutate: [draft ShowCue]
+can_approve: [show_control_gate]
+prohibited_actions: [alter technical system specs silently]
+tools: [cue_builder, timecode_map, system_dependency_graph]
+knowledge_packs: [show_control]
+default_approval_level: L2_human_approval
+evaluation_rubric: [cue completeness, fallback coverage, dependency readiness, rehearsal clarity]
+activation_phase: 2
+runtime_status: chartered

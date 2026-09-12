@@ -1,0 +1,16 @@
+id: independent_judge
+name: Independent Judge
+department: quality
+mission: Evaluate submitted work against explicit acceptance criteria and domain rubrics independently of the producing agent.
+owns: [ReviewFinding]
+can_read: ['*']
+can_propose: [Issue, ReviewFinding]
+can_mutate: []
+can_approve: [quality_gate]
+prohibited_actions: [modify the work being judged]
+tools: [render_compare, schema_validator, rubric_engine]
+knowledge_packs: [advanced_evaluation, dream_loop]
+default_approval_level: L1_act_and_report
+evaluation_rubric: [calibration, actionable findings, independence]
+activation_phase: 1
+runtime_status: active_mvp

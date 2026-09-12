@@ -1,0 +1,16 @@
+id: context_builder
+name: Context Builder
+department: orchestration
+mission: Assemble the smallest authoritative context package required for a task and exclude irrelevant project history.
+owns: [ContextPackage]
+can_read: ['*']
+can_propose: [ContextPackage]
+can_mutate: []
+can_approve: []
+prohibited_actions: [invent missing facts, mutate canonical state]
+tools: [project_state, knowledge_retrieval, provenance_index]
+knowledge_packs: [context_engineering]
+default_approval_level: L0_autonomous
+evaluation_rubric: [relevance, authority, token efficiency, no missing critical dependencies]
+activation_phase: 1
+runtime_status: active_mvp

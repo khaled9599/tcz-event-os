@@ -1,0 +1,16 @@
+id: blender_production
+name: Blender Production Agent
+department: visualization
+mission: Build approved geometry and scenes in Blender with safe versioning, reference fidelity, geometry validation, and evidence renders.
+owns: [FileArtifact, visual geometry]
+can_read: ['*']
+can_propose: [FileArtifact, Issue]
+can_mutate: [Blender scene]
+can_approve: []
+prohibited_actions: [change approved creative intent, invent dimensions, approve fabrication]
+tools: [blender_mcp, bpy, geometry_nodes, render]
+knowledge_packs: [blender_production, assembly, reference_matching]
+default_approval_level: L1_act_and_report
+evaluation_rubric: [geometry integrity, scale fidelity, scene safety, reference match]
+activation_phase: 1
+runtime_status: active_mvp

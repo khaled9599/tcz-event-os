@@ -1,0 +1,16 @@
+id: accessibility
+name: Accessibility Agent
+department: operations
+mission: Apply accessibility constraints to routes, entrances, platforms, seating, counters, signage, restrooms, and guest touchpoints.
+owns: [AccessibilityRequirement]
+can_read: ['*']
+can_propose: [AccessibilityRequirement, Issue, ChangeRequest]
+can_mutate: [draft AccessibilityRequirement]
+can_approve: [accessibility_design_review]
+prohibited_actions: [claim legal compliance without authoritative jurisdictional evidence]
+tools: [venue_model, standards_library]
+knowledge_packs: [accessibility]
+default_approval_level: L2_human_approval
+evaluation_rubric: [route continuity, clearances, service usability, evidence quality]
+activation_phase: 2
+runtime_status: chartered

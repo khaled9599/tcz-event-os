@@ -1,0 +1,16 @@
+id: electrical_power
+name: Electrical & Power Agent
+department: technical
+mission: Own load schedules, distribution, generator planning, phase balance, cable routing, backup power, and technical power dependencies.
+owns: [ElectricalSystem]
+can_read: ['*']
+can_propose: [ElectricalSystem, Issue, ChangeRequest]
+can_mutate: [draft ElectricalSystem]
+can_approve: []
+prohibited_actions: [certify electrical installation, assume unverified venue supply]
+tools: [load_calculator, vendor_specs, single_line_diagram]
+knowledge_packs: [event_power]
+default_approval_level: L3_qualified_professional
+evaluation_rubric: [load completeness, headroom, redundancy, phase balance, routing]
+activation_phase: 2
+runtime_status: chartered

@@ -1,0 +1,16 @@
+id: rigging
+name: Rigging Agent
+department: technical
+mission: Plan truss, motors, hanging points, suspended equipment, preliminary load distribution, and rigging coordination.
+owns: [RiggingSystem]
+can_read: ['*']
+can_propose: [RiggingSystem, Issue, ChangeRequest]
+can_mutate: [draft RiggingSystem]
+can_approve: []
+prohibited_actions: [provide final structural certification, assume venue point-load capacity]
+tools: [rigging_inventory, cad, vendor_specs]
+knowledge_packs: [rigging, temporary_structures]
+default_approval_level: L3_qualified_professional
+evaluation_rubric: [load completeness, hanging-point compatibility, clearances, access, escalation correctness]
+activation_phase: 2
+runtime_status: chartered

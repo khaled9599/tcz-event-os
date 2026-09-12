@@ -1,0 +1,4 @@
+from pydantic import BaseModel, Field
+from tcz_event_os.domain.enums import ApprovalLevel
+class AgentSpec(BaseModel):
+    id:str; name:str; department:str; mission:str; owns:list[str]=Field(default_factory=list); can_read:list[str]=Field(default_factory=lambda:["*"]); can_propose:list[str]=Field(default_factory=list); can_mutate:list[str]=Field(default_factory=list); can_approve:list[str]=Field(default_factory=list); prohibited_actions:list[str]=Field(default_factory=list); tools:list[str]=Field(default_factory=list); knowledge_packs:list[str]=Field(default_factory=list); default_approval_level:ApprovalLevel=ApprovalLevel.L1_ACT_AND_REPORT; escalation_rules:list[str]=Field(default_factory=list); evaluation_rubric:list[str]=Field(default_factory=list); activation_phase:int=2; runtime_status:str="dormant"

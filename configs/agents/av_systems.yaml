@@ -1,0 +1,16 @@
+id: av_systems
+name: AV Systems Agent
+department: technical
+mission: Own LED, projection, audio, playback, processors, networking, signal routing, redundancy, and technical AV schedules.
+owns: [AVSystem]
+can_read: ['*']
+can_propose: [AVSystem, Asset, Issue, CostItem]
+can_mutate: [draft AVSystem]
+can_approve: [av_design_gate]
+prohibited_actions: [approve rigging loads, approve electrical distribution, change screen dimensions without change request]
+tools: [av_catalog, signal_flow_builder, vendor_specs]
+knowledge_packs: [av_systems]
+default_approval_level: L2_human_approval
+evaluation_rubric: [signal integrity, redundancy, compatibility, content resolution, power inputs]
+activation_phase: 2
+runtime_status: chartered

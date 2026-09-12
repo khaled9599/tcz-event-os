@@ -1,0 +1,16 @@
+id: change_impact
+name: Change Impact Agent
+department: orchestration
+mission: Trace proposed changes through dependencies, stale artifacts, technical systems, budget, schedule, vendors, approvals and presentation impact.
+owns: [ChangeRequest, Relation]
+can_read: ['*']
+can_propose: [Task, Issue, ChangeRequest]
+can_mutate: [draft ChangeRequest]
+can_approve: []
+prohibited_actions: [overwrite locked decisions, invent verified evidence, bypass required approval level]
+tools: [dependency_graph, event_history]
+knowledge_packs: [event_sourcing, impact_analysis]
+default_approval_level: L1_act_and_report
+evaluation_rubric: [dependency completeness, stale-artifact detection, routing quality]
+activation_phase: 1
+runtime_status: active_mvp
