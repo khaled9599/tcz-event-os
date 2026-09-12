@@ -53,8 +53,17 @@ IMPACT_OUTPUT_SCHEMA: dict[str, Any] = {
         "affected_domains": {"type": "array", "items": {"type": "string"}},
         "required_agents": {"type": "array", "items": {"type": "string"}},
         "approval_levels": {
-            "type": "object",
-            "additionalProperties": {"type": "string"},
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "task_id": {"type": "string"},
+                    "level": {"type": "string"},
+                    "reason": {"type": "string"},
+                },
+                "required": ["task_id", "level", "reason"],
+            },
         },
         "risks": {"type": "array", "items": {"type": "string"}},
         "assumptions": {"type": "array", "items": {"type": "string"}},
@@ -128,6 +137,7 @@ class OpenAIImpactRuntime:
                 "Do not call tools or perform side effects.",
                 "Use only the provided canonical context and skill procedures.",
                 "Return only the required structured JSON fields.",
+                "Return approval_levels as an array of task_id, level, and reason objects.",
                 "Mark safety-critical rigging implications as L3.",
                 "Mark production/buildability mutations as at least L2.",
             ],

@@ -15,7 +15,10 @@ class FakeResponse:
         {
             "affected_domains": ["spatial", "production_engineering", "rigging"],
             "required_agents": ["creative_spatial", "production_engineering", "rigging"],
-            "approval_levels": {"T-PRODUCTION": "L2", "T-RIGGING": "L3"},
+            "approval_levels": [
+                {"task_id": "T-PRODUCTION", "level": "L2", "reason": "Production mutation"},
+                {"task_id": "T-RIGGING", "level": "L3", "reason": "Safety-critical rigging"},
+            ],
             "risks": ["structural assumptions require qualified review"],
             "assumptions": ["No external tools were invoked."],
             "recommended_next_tasks": ["Review geometry", "Review rigging implications"],
@@ -45,7 +48,7 @@ def test_openai_impact_runtime_returns_structured_agent_result():
 
     impact = result.agent_results["T-IMPACT"]
     assert result.run.phase == RunPhase.COMPLETED
-    assert impact.outputs["approval_levels"]["T-RIGGING"] == "L3"
+    assert {"task_id": "T-RIGGING", "level": "L3", "reason": "Safety-critical rigging"} in impact.outputs["approval_levels"]
     assert impact.risks == ["structural assumptions require qualified review"]
     assert client.responses.calls[0]["text"]["format"]["type"] == "json_schema"
 
