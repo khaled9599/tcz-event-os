@@ -18,11 +18,22 @@ class SkillLoader:
         self.registry = yaml.safe_load(registry_path.read_text()) or {}
         self.matrix = yaml.safe_load(matrix_path.read_text()) or {}
 
+    def _agent_entry(self, agent_id: str) -> dict:
+        agents = self.matrix.get("agents", self.matrix)
+        entry = agents.get(agent_id, {}) if isinstance(agents, dict) else {}
+        if isinstance(entry, list):
+            return {"required": entry, "optional": []}
+        return entry or {}
+
+    def required_skills(self, agent_id: str) -> list[str]:
+        return list(self._agent_entry(agent_id).get("required", []) or [])
+
+    def optional_skills(self, agent_id: str) -> list[str]:
+        return list(self._agent_entry(agent_id).get("optional", []) or [])
+
     def allowed_skills(self, agent_id: str) -> set[str]:
-        raw = self.matrix.get(agent_id, [])
-        if isinstance(raw, dict):
-            raw = raw.get("skills", [])
-        return set(raw or [])
+        entry = self._agent_entry(agent_id)
+        return set((entry.get("required", []) or []) + (entry.get("optional", []) or []))
 
     def resolve(self, agent_id: str, required_skills: Iterable[str]) -> list[dict]:
         allowed = self.allowed_skills(agent_id)
@@ -45,5 +56,13 @@ class SkillLoader:
             skill_path = self.repo_root / path
             if not skill_path.exists():
                 raise SkillResolutionError(f"skill {skill_id} points to missing file {path}")
-            resolved.append({"skill_id": skill_id, "path": path, "content": skill_path.read_text()})
+            resolved.append({
+                "skill_id": skill_id,
+                "path": path,
+                "content": skill_path.read_text(),
+                "sources": item.get("sources", []),
+            })
         return resolved
+
+    def resolve_required(self, agent_id: str) -> list[dict]:
+        return self.resolve(agent_id, self.required_skills(agent_id))
