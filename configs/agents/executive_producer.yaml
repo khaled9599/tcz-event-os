@@ -9,6 +9,7 @@ can_mutate: [Task, ChangeRequest]
 can_approve: [L0, L1]
 prohibited_actions: [self-approve L2/L3 decisions, override qualified-professional signoff]
 tools: [project_state, agent_registry, workflow_engine]
+skills: [orchestration.task_decomposition, orchestration.change_impact, orchestration.approval_routing]
 knowledge_packs: [agent_engineering, event_production]
 default_approval_level: L1_act_and_report
 escalation_rules: [Escalate client-facing concept, budget baseline, and safety-critical changes.]
