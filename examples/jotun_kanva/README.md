@@ -22,3 +22,11 @@ Edit `work/jotun_approvals.json` and change each decision from `pending` to `app
 ```bash
 python -m brain.runtime.cli --resume work/jotun_approvals.json
 ```
+
+Run only the impact task with the OpenAI-backed runtime:
+
+```bash
+python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --runtime openai-impact --approval-file work/jotun_openai_approvals.json
+```
+
+This mode requires the optional OpenAI SDK and `OPENAI_API_KEY`. It only replaces `T-IMPACT`; the remaining tasks use the deterministic runtime until each specialist adapter is promoted.

@@ -74,3 +74,15 @@ class DeterministicAgentRuntime:
             risks=[],
             requires_human_decision=False,
         )
+
+
+class DelegatingAgentRuntime:
+    """Route selected tasks to a specialist runtime and keep the rest deterministic."""
+
+    def __init__(self, task_runtimes: dict[str, AgentRuntime], fallback: AgentRuntime | None = None):
+        self.task_runtimes = task_runtimes
+        self.fallback = fallback or DeterministicAgentRuntime()
+
+    def execute(self, request: AgentExecutionRequest) -> AgentResult:
+        runtime = self.task_runtimes.get(request.task.task_id, self.fallback)
+        return runtime.execute(request)

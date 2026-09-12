@@ -14,7 +14,8 @@ from brain.contracts.runtime_contracts import (
     TaskGraph,
     TaskNode,
 )
-from brain.runtime.agent_runtime import AgentResult
+from brain.runtime.agent_runtime import AgentResult, DelegatingAgentRuntime
+from brain.runtime.openai_agents_adapter import OpenAIImpactRuntime
 from brain.runtime.orchestrator import BrainOrchestrator, OrchestrationResult
 
 
@@ -126,9 +127,17 @@ def write_approval_file(result: OrchestrationResult, proposed_state: dict[str, A
     path.write_text(json.dumps(_approval_checkpoint(result, proposed_state), indent=2, sort_keys=True))
 
 
-def resume_approval_file(path: Path) -> OrchestrationResult:
+def _build_runtime(runtime_name: str):
+    if runtime_name == "deterministic":
+        return None
+    if runtime_name == "openai-impact":
+        return DelegatingAgentRuntime({"T-IMPACT": OpenAIImpactRuntime()})
+    raise ValueError(f"unknown runtime: {runtime_name}")
+
+
+def resume_approval_file(path: Path, *, runtime_name: str = "deterministic") -> OrchestrationResult:
     data = json.loads(path.read_text())
-    brain = BrainOrchestrator(_repo_root())
+    brain = BrainOrchestrator(_repo_root(), agent_runtime=_build_runtime(runtime_name))
     result = _deserialize_result(data["checkpoint"])
     proposed_state = data["checkpoint"].get("proposed_state", {})
     return brain.resume(result, data.get("decisions", {}), proposed_state)
@@ -139,9 +148,11 @@ def run_scenario(
     *,
     auto_approve: bool = False,
     approval_file: Path | None = None,
+    runtime_name: str = "deterministic",
+    agent_runtime=None,
 ) -> OrchestrationResult:
     data = _load_scenario(path)
-    brain = BrainOrchestrator(_repo_root())
+    brain = BrainOrchestrator(_repo_root(), agent_runtime=agent_runtime or _build_runtime(runtime_name))
     proposed_state = data.get("proposed_state", {})
     result = brain.start(
         objective=data["objective"],
@@ -177,10 +188,16 @@ def main() -> None:
         type=Path,
         help="Resume a paused run from an edited approval checkpoint JSON file.",
     )
+    parser.add_argument(
+        "--runtime",
+        choices=["deterministic", "openai-impact"],
+        default="deterministic",
+        help="Agent runtime to use. openai-impact only replaces T-IMPACT with an OpenAI-backed agent.",
+    )
     args = parser.parse_args()
 
     if args.resume:
-        result = resume_approval_file(args.resume)
+        result = resume_approval_file(args.resume, runtime_name=args.runtime)
     else:
         if args.scenario is None:
             parser.error("scenario is required unless --resume is provided")
@@ -188,6 +205,7 @@ def main() -> None:
             args.scenario,
             auto_approve=args.auto_approve_demo,
             approval_file=args.approval_file,
+            runtime_name=args.runtime,
         )
     print(json.dumps(_summarize(result), indent=2, sort_keys=True))
 
