@@ -79,3 +79,15 @@ def test_cli_can_run_only_impact_task():
     assert impact.outputs["height_delta_mm"] == 1300
     assert "rigging" in impact.outputs["affected_domains"]
     assert {"task_id": "T-RIGGING", "level": "L3", "reason": "Height change can affect safety-critical temporary-structure assumptions."} in impact.outputs["approval_levels"]
+
+
+def test_cli_can_run_through_spatial_task():
+    result = run_scenario(SCENARIO, until_task="T-SPATIAL")
+    spatial = result.agent_results["T-SPATIAL"]
+
+    assert result.run.phase == RunPhase.COMPLETED
+    assert list(result.agent_results) == ["T-IMPACT", "T-SPATIAL"]
+    assert {task.task_id for task in result.graph.nodes} == {"T-IMPACT", "T-SPATIAL"}
+    assert spatial.outputs["height_mm"] == 5500
+    assert spatial.outputs["height_delta_mm"] == 1300
+    assert "approved clear opening must be retained" in spatial.outputs["preserved_constraints"]

@@ -18,6 +18,7 @@ from brain.runtime.agent_runtime import (
     AgentResult,
     DelegatingAgentRuntime,
     DeterministicImpactRuntime,
+    DeterministicSpatialRuntime,
 )
 from brain.runtime.openai_agents_adapter import OpenAIImpactRuntime
 from brain.runtime.orchestrator import BrainOrchestrator, OrchestrationResult
@@ -55,16 +56,47 @@ def _build_graph(data: dict[str, Any]) -> TaskGraph:
     return TaskGraph(objective=graph_data["objective"], nodes=nodes)
 
 
-def _filter_graph(graph: TaskGraph, only_task: str | None = None) -> TaskGraph:
-    if only_task is None:
+def _filter_graph(
+    graph: TaskGraph,
+    *,
+    only_task: str | None = None,
+    until_task: str | None = None,
+) -> TaskGraph:
+    if only_task and until_task:
+        raise ValueError("use either only_task or until_task, not both")
+    if only_task is None and until_task is None:
         return graph
-    task = next((node for node in graph.nodes if node.task_id == only_task), None)
-    if task is None:
+
+    if only_task:
+        task = next((node for node in graph.nodes if node.task_id == only_task), None)
+        if task is None:
+            raise ValueError(f"task {only_task} not found in graph")
+        if task.depends_on:
+            raise ValueError(f"task {only_task} has dependencies and cannot run alone: {task.depends_on}")
+        task.depends_on = []
+        return TaskGraph(objective=f"{graph.objective} / {only_task}", nodes=[task])
+
+    selected: dict[str, TaskNode] = {}
+    nodes_by_id = {node.task_id: node for node in graph.nodes}
+
+    def add_with_dependencies(task_id: str) -> None:
+        task = nodes_by_id.get(task_id)
+        if task is None:
+            raise ValueError(f"task {task_id} not found in graph")
+        for dependency_id in task.depends_on:
+            add_with_dependencies(dependency_id)
+        selected[task.task_id] = task
+
+    add_with_dependencies(until_task or "")
+    selected_ids = set(selected)
+    ordered = [
+        node
+        for node in graph.nodes
+        if node.task_id in selected_ids
+    ]
+    if not ordered:
         raise ValueError(f"task {only_task} not found in graph")
-    if task.depends_on:
-        raise ValueError(f"task {only_task} has dependencies and cannot run alone: {task.depends_on}")
-    task.depends_on = []
-    return TaskGraph(objective=f"{graph.objective} / {only_task}", nodes=[task])
+    return TaskGraph(objective=f"{graph.objective} / through {until_task}", nodes=ordered)
 
 
 def _summarize(result: OrchestrationResult) -> dict[str, Any]:
@@ -175,7 +207,10 @@ def write_approval_file(
 
 def _build_runtime(runtime_name: str):
     if runtime_name == "deterministic":
-        return DelegatingAgentRuntime({"T-IMPACT": DeterministicImpactRuntime()})
+        return DelegatingAgentRuntime({
+            "T-IMPACT": DeterministicImpactRuntime(),
+            "T-SPATIAL": DeterministicSpatialRuntime(),
+        })
     if runtime_name == "openai-impact":
         return DelegatingAgentRuntime({"T-IMPACT": OpenAIImpactRuntime()})
     raise ValueError(f"unknown runtime: {runtime_name}")
@@ -198,11 +233,12 @@ def run_scenario(
     runtime_name: str = "deterministic",
     agent_runtime=None,
     only_task: str | None = None,
+    until_task: str | None = None,
 ) -> OrchestrationResult:
     data = _load_scenario(path)
     brain = BrainOrchestrator(_repo_root(), agent_runtime=agent_runtime or _build_runtime(runtime_name))
     proposed_state = data.get("proposed_state", {})
-    graph = _filter_graph(_build_graph(data), only_task=only_task)
+    graph = _filter_graph(_build_graph(data), only_task=only_task, until_task=until_task)
     result = brain.start(
         objective=data["objective"],
         graph=graph,
@@ -258,6 +294,10 @@ def main() -> None:
         "--only-task",
         help="Run one dependency-free task from the scenario graph, such as T-IMPACT.",
     )
+    parser.add_argument(
+        "--until-task",
+        help="Run the dependency chain through a task, such as T-SPATIAL.",
+    )
     args = parser.parse_args()
 
     if args.resume:
@@ -271,6 +311,7 @@ def main() -> None:
             approval_file=args.approval_file,
             runtime_name=args.runtime or "deterministic",
             only_task=args.only_task,
+            until_task=args.until_task,
         )
     payload = _render_result(result, args.output)
     if args.output_file:

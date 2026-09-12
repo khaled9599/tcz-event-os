@@ -44,3 +44,9 @@ python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --o
 ```
 
 The deterministic `T-IMPACT` path returns affected domains, required agents, approval levels, risks, assumptions, recommended next tasks, and the entrance height delta without needing OpenAI credits.
+
+Run impact plus spatial response:
+
+```bash
+python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --until-task T-SPATIAL --output full --output-file work/spatial_chain_result.json
+```

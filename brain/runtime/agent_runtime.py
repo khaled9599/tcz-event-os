@@ -139,6 +139,54 @@ class DeterministicImpactRuntime:
         )
 
 
+class DeterministicSpatialRuntime:
+    """Offline spatial analyzer for the first geometry-response phase."""
+
+    def execute(self, request: AgentExecutionRequest) -> AgentResult:
+        task = request.task
+        state = request.context.authoritative_state
+        before = state.get("before", {})
+        proposed = state.get("proposed", {})
+        before_height = before.get("height_mm")
+        proposed_height = proposed.get("height_mm")
+        impact_output = request.context.prior_outputs.get("T-IMPACT", {}).get("outputs", {})
+        height_delta = impact_output.get("height_delta_mm")
+
+        outputs = {
+            "geometry_change_summary": f"Increase {task.object_id} height from {before_height}mm to {proposed_height}mm.",
+            "height_mm": proposed_height,
+            "height_delta_mm": height_delta,
+            "preserved_constraints": [
+                "canonical object ID remains KANVA_ENTRANCE_01",
+                "approved clear opening must be retained",
+                "design intent remains The Living KANVAS transition moment",
+            ],
+            "design_intent_assumptions": [
+                "The added height increases entrance presence without changing the approved concept.",
+                "Width and clear opening are unchanged unless a later specialist flags conflict.",
+            ],
+            "downstream_production_notes": [
+                "Production must verify buildability, quantities, and material takeoff.",
+                "Rigging must review temporary-structure and safety-critical implications.",
+                "Blender representation and render validation become stale until updated.",
+            ],
+            "input_impact_domains": impact_output.get("affected_domains", []),
+            "context_id": request.context.context_id,
+        }
+        return AgentResult(
+            task_id=task.task_id,
+            agent_id=task.assigned_agent,
+            summary=f"Spatial response keeps {task.object_id} at {proposed_height}mm with clear-opening constraints preserved.",
+            outputs=outputs,
+            evidence_refs=[request.context.context_id],
+            assumptions=outputs["design_intent_assumptions"],
+            risks=[
+                "Spatial proposal remains unverified until production and rigging reviews complete."
+            ],
+            requires_human_decision=False,
+        )
+
+
 class DelegatingAgentRuntime:
     """Route selected tasks to a specialist runtime and keep the rest deterministic."""
 
