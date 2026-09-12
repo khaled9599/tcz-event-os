@@ -56,6 +56,8 @@ pip install -e '.[dev]'
 pytest
 python examples/jotun_kanva/run_vertical_slice.py
 python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --auto-approve-demo
+python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --approval-file work/jotun_approvals.json
+python -m brain.runtime.cli --resume work/jotun_approvals.json
 ```
 
 The Jotun vertical slice demonstrates controlled change, impact detection, QA, approval policy, and append-only event history.
