@@ -1,0 +1,92 @@
+version: 0.1
+principle: Skills are reusable operational procedures. Agents load only task-relevant skills; knowledge packs remain background reference.
+
+skills:
+  orchestration.task_decomposition:
+    path: skills/orchestration/task-decomposition/SKILL.md
+    sources: [muratcankoylan/Agent-Skills-for-Context-Engineering, NeoLabHQ/context-engineering-kit]
+    used_by: [executive_producer]
+  orchestration.context_building:
+    path: skills/orchestration/context-building/SKILL.md
+    sources: [muratcankoylan/Agent-Skills-for-Context-Engineering]
+    used_by: [context_builder]
+  orchestration.change_impact:
+    path: skills/orchestration/change-impact/SKILL.md
+    sources: [cloudevents/spec, pydantic/pydantic-ai, langchain-ai/langgraph]
+    used_by: [executive_producer, change_impact, production_engineering, av_systems, electrical_power, rigging]
+  orchestration.approval_routing:
+    path: skills/orchestration/approval-routing/SKILL.md
+    sources: [temporal-community/temporal-agent-harness]
+    used_by: [executive_producer, supervisor]
+  quality.independent_judging:
+    path: skills/quality/independent-judging/SKILL.md
+    sources: [NeoLabHQ/context-engineering-kit, muratcankoylan/Agent-Skills-for-Context-Engineering]
+    used_by: [independent_judge]
+  quality.visual_critique:
+    path: skills/quality/visual-critique/SKILL.md
+    sources: [achimala/dream-loop, RobLe3/cc-blender-skill]
+    used_by: [independent_judge, blender_production]
+  creative.spatial_zoning:
+    path: skills/creative/spatial-zoning/SKILL.md
+    sources: [p4inz-code/3d-ref-skills, EaseHee/rhino-mcp]
+    used_by: [creative_spatial]
+  creative.installation_design:
+    path: skills/creative/installation-design/SKILL.md
+    sources: [p4inz-code/3d-ref-skills, EaseHee/rhino-mcp]
+    used_by: [creative_spatial, production_engineering]
+  visualization.reference_engineering:
+    path: skills/visualization/reference-engineering/SKILL.md
+    sources: [p4inz-code/3d-ref-skills, RobLe3/cc-blender-skill]
+    used_by: [creative_spatial, blender_production]
+  visualization.blender_modeling:
+    path: skills/visualization/blender-modeling/SKILL.md
+    sources: [arjun988/blender-skills, TMHSDigital/Blender-Developer-Tools, RobLe3/cc-blender-skill]
+    used_by: [blender_production]
+  visualization.blender_assembly:
+    path: skills/visualization/blender-assembly/SKILL.md
+    sources: [ProfRino/Blender-MCP-Assembly-Skill]
+    used_by: [blender_production, production_engineering]
+  visualization.render_validation:
+    path: skills/visualization/render-validation/SKILL.md
+    sources: [achimala/dream-loop, RobLe3/cc-blender-skill]
+    used_by: [blender_production, independent_judge]
+  production.buildability_review:
+    path: skills/production/buildability-review/SKILL.md
+    sources: [pzfreo/build123d-mcp, Show2Instruct/bonsai-mcp, ProfRino/Blender-MCP-Assembly-Skill]
+    used_by: [production_engineering]
+  production.material_takeoff:
+    path: skills/production/material-takeoff/SKILL.md
+    sources: [Show2Instruct/bonsai-mcp, EaseHee/rhino-mcp]
+    used_by: [production_engineering]
+  technical.av_system_design:
+    path: skills/technical/av-system-design/SKILL.md
+    sources: []
+    used_by: [av_systems]
+  technical.rigging_review:
+    path: skills/technical/rigging-review/SKILL.md
+    sources: []
+    used_by: [rigging]
+  technical.electrical_loads:
+    path: skills/technical/electrical-loads/SKILL.md
+    sources: []
+    used_by: [electrical_power]
+  technical.show_control:
+    path: skills/technical/show-control/SKILL.md
+    sources: []
+    used_by: [show_control]
+  operations.hospitality_planning:
+    path: skills/operations/hospitality-planning/SKILL.md
+    sources: []
+    used_by: [hospitality]
+  operations.accessibility_review:
+    path: skills/operations/accessibility-review/SKILL.md
+    sources: []
+    used_by: [accessibility]
+  commercial.vendor_rfq:
+    path: skills/commercial/vendor-rfq/SKILL.md
+    sources: []
+    used_by: [vendor_management]
+  operations.inventory_control:
+    path: skills/operations/inventory-control/SKILL.md
+    sources: []
+    used_by: [warehouse_inventory]
