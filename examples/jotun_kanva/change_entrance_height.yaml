@@ -1,0 +1,115 @@
+objective: Increase KANVA_ENTRANCE_01 from 4200mm to 5500mm
+
+before_state:
+  object_id: KANVA_ENTRANCE_01
+  height_mm: 4200
+  verification: verified
+
+proposed_state:
+  object_id: KANVA_ENTRANCE_01
+  height_mm: 5500
+  verification: unverified
+
+impacts:
+  - spatial
+  - production_engineering
+  - rigging
+  - quantity
+  - cost
+  - schedule
+  - blender
+  - visual_qa
+
+risks:
+  - structural assumptions require qualified review
+  - previous render and quantity artifacts become stale
+
+graph:
+  objective: Increase Jotun Kanva entrance to 5.5m
+  nodes:
+    - task_id: T-IMPACT
+      objective: Assess impact of increasing KANVA_ENTRANCE_01 height to 5500mm
+      object_id: KANVA_ENTRANCE_01
+      assigned_agent: executive_producer
+      required_skills:
+        - orchestration.task_decomposition
+        - orchestration.change_impact
+        - orchestration.approval_routing
+      acceptance_criteria:
+        - affected domains identified
+        - approval levels assigned
+
+    - task_id: T-SPATIAL
+      objective: Revise entrance geometry and preserve approved clear opening
+      object_id: KANVA_ENTRANCE_01
+      assigned_agent: creative_spatial
+      required_skills:
+        - creative.installation_design
+        - visualization.reference_engineering
+      depends_on:
+        - T-IMPACT
+      acceptance_criteria:
+        - height 5500mm
+        - clear opening retained
+        - design intent preserved
+
+    - task_id: T-PRODUCTION
+      objective: Review buildability and update material takeoff
+      object_id: KANVA_ENTRANCE_01
+      assigned_agent: production_engineering
+      required_skills:
+        - production.buildability_review
+        - production.material_takeoff
+        - visualization.blender_assembly
+      depends_on:
+        - T-SPATIAL
+      required_approval_level: L2
+      side_effect_class: reversible
+      acceptance_criteria:
+        - buildability reviewed
+        - quantity impact stated
+        - structural signoff separated
+
+    - task_id: T-RIGGING
+      objective: Review temporary-structure rigging implications for revised height
+      object_id: KANVA_ENTRANCE_01
+      assigned_agent: rigging
+      required_skills:
+        - technical.rigging_review
+      depends_on:
+        - T-PRODUCTION
+      required_approval_level: L3
+      side_effect_class: safety_critical
+      acceptance_criteria:
+        - engineering assumptions explicit
+        - qualified signoff required
+
+    - task_id: T-BLENDER
+      objective: Update approved entrance representation to 5500mm and validate render geometry
+      object_id: KANVA_ENTRANCE_01
+      assigned_agent: blender_production
+      required_skills:
+        - visualization.reference_engineering
+        - visualization.blender_modeling
+        - visualization.blender_assembly
+        - visualization.render_validation
+      depends_on:
+        - T-PRODUCTION
+        - T-RIGGING
+      acceptance_criteria:
+        - model height 5500mm
+        - canonical object ID preserved
+        - render validation passes
+
+    - task_id: T-JUDGE
+      objective: Independently judge the revised entrance package
+      object_id: KANVA_ENTRANCE_01
+      assigned_agent: independent_judge
+      required_skills:
+        - quality.independent_judging
+        - quality.visual_critique
+      depends_on:
+        - T-BLENDER
+      acceptance_criteria:
+        - no blocker findings
+        - measurable claims backed by evidence

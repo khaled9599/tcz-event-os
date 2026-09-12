@@ -1,0 +1,107 @@
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from brain.contracts.runtime_contracts import SideEffectClass, TaskGraph, TaskNode
+from brain.runtime.orchestrator import BrainOrchestrator, OrchestrationResult
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _load_scenario(path: Path) -> dict[str, Any]:
+    data = yaml.safe_load(path.read_text()) or {}
+    if not isinstance(data, dict):
+        raise TypeError(f"scenario must be a YAML mapping: {path}")
+    return data
+
+
+def _build_graph(data: dict[str, Any]) -> TaskGraph:
+    graph_data = data.get("graph", {})
+    nodes = []
+    for item in graph_data.get("nodes", []):
+        side_effect = item.get("side_effect_class", SideEffectClass.NONE.value)
+        nodes.append(
+            TaskNode(
+                task_id=item["task_id"],
+                objective=item["objective"],
+                object_id=item.get("object_id"),
+                assigned_agent=item.get("assigned_agent"),
+                required_skills=item.get("required_skills", []),
+                depends_on=item.get("depends_on", []),
+                acceptance_criteria=item.get("acceptance_criteria", []),
+                side_effect_class=SideEffectClass(side_effect),
+                required_approval_level=item.get("required_approval_level", "L0"),
+            )
+        )
+    return TaskGraph(objective=graph_data["objective"], nodes=nodes)
+
+
+def _summarize(result: OrchestrationResult) -> dict[str, Any]:
+    return {
+        "run_id": result.run.run_id,
+        "phase": result.run.phase.value,
+        "approval_levels": [packet.required_level for packet in result.approvals],
+        "approvals": [
+            {
+                "approval_id": packet.approval_id,
+                "task_id": packet.task_id,
+                "required_level": packet.required_level,
+                "status": packet.status,
+            }
+            for packet in result.approvals
+        ],
+        "agents_used": result.run.agents_used,
+        "skills_loaded": [skill.skill_id for skill in result.run.skills_loaded],
+        "context_package_ids": result.run.context_package_ids,
+        "task_statuses": {task.task_id: task.status for task in result.graph.nodes},
+        "judge_decisions": [
+            {"task_id": item["task_id"], "decision": item["decision"]}
+            for item in result.run.judge_results
+        ],
+        "committed_state": result.committed_state,
+        "failure_class": result.run.failure_class.value if result.run.failure_class else None,
+        "failure_detail": result.run.failure_detail,
+    }
+
+
+def run_scenario(path: Path, *, auto_approve: bool = False) -> OrchestrationResult:
+    data = _load_scenario(path)
+    brain = BrainOrchestrator(_repo_root())
+    proposed_state = data.get("proposed_state", {})
+    result = brain.start(
+        objective=data["objective"],
+        graph=_build_graph(data),
+        before_state=data.get("before_state", {}),
+        proposed_state=proposed_state,
+        impacts=data.get("impacts", []),
+        risks=data.get("risks", []),
+    )
+    if auto_approve and result.approvals:
+        decisions = {packet.approval_id: "approved" for packet in result.approvals}
+        result = brain.resume(result, decisions, proposed_state)
+    return result
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Run a TCZ brain scenario.")
+    parser.add_argument("scenario", type=Path, help="Path to a YAML brain scenario.")
+    parser.add_argument(
+        "--auto-approve-demo",
+        action="store_true",
+        help="Approve all generated approval packets for deterministic demo runs.",
+    )
+    args = parser.parse_args()
+
+    result = run_scenario(args.scenario, auto_approve=args.auto_approve_demo)
+    print(json.dumps(_summarize(result), indent=2, sort_keys=True))
+
+
+if __name__ == "__main__":
+    main()
