@@ -9,6 +9,7 @@ can_mutate: [draft fabrication data]
 can_approve: [production_feasibility]
 prohibited_actions: [issue certified structural signoff, change creative intent without change request]
 tools: [build123d_mcp, bonsai_mcp, nesting]
+skills: [production.buildability_review, production.material_takeoff, visualization.blender_assembly, orchestration.change_impact]
 knowledge_packs: [fabrication, assembly, cad]
 default_approval_level: L2_human_approval
 escalation_rules: [Structural calculations and life-safety items require L3 qualified professional.]
