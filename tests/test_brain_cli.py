@@ -66,3 +66,12 @@ def test_cli_can_write_full_output_file(tmp_path):
 
     assert saved["summary"]["phase"] == "completed"
     assert saved["checkpoint"]["agent_results"]["T-IMPACT"]["outputs"]
+
+
+def test_cli_can_run_only_impact_task():
+    result = run_scenario(SCENARIO, only_task="T-IMPACT")
+
+    assert result.run.phase == RunPhase.COMPLETED
+    assert list(result.agent_results) == ["T-IMPACT"]
+    assert result.committed_state["height_mm"] == 5500
+    assert {task.task_id for task in result.graph.nodes} == {"T-IMPACT"}

@@ -36,3 +36,9 @@ Save a full result for inspection:
 ```bash
 python -m brain.runtime.cli --resume work/jotun_openai_approvals.json --output full --output-file work/jotun_openai_full_result.json
 ```
+
+Run only the first impact-analysis phase:
+
+```bash
+python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --only-task T-IMPACT --output full --output-file work/impact_only_result.json
+```

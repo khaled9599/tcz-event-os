@@ -51,6 +51,18 @@ def _build_graph(data: dict[str, Any]) -> TaskGraph:
     return TaskGraph(objective=graph_data["objective"], nodes=nodes)
 
 
+def _filter_graph(graph: TaskGraph, only_task: str | None = None) -> TaskGraph:
+    if only_task is None:
+        return graph
+    task = next((node for node in graph.nodes if node.task_id == only_task), None)
+    if task is None:
+        raise ValueError(f"task {only_task} not found in graph")
+    if task.depends_on:
+        raise ValueError(f"task {only_task} has dependencies and cannot run alone: {task.depends_on}")
+    task.depends_on = []
+    return TaskGraph(objective=f"{graph.objective} / {only_task}", nodes=[task])
+
+
 def _summarize(result: OrchestrationResult) -> dict[str, Any]:
     return {
         "run_id": result.run.run_id,
@@ -181,13 +193,15 @@ def run_scenario(
     approval_file: Path | None = None,
     runtime_name: str = "deterministic",
     agent_runtime=None,
+    only_task: str | None = None,
 ) -> OrchestrationResult:
     data = _load_scenario(path)
     brain = BrainOrchestrator(_repo_root(), agent_runtime=agent_runtime or _build_runtime(runtime_name))
     proposed_state = data.get("proposed_state", {})
+    graph = _filter_graph(_build_graph(data), only_task=only_task)
     result = brain.start(
         objective=data["objective"],
-        graph=_build_graph(data),
+        graph=graph,
         before_state=data.get("before_state", {}),
         proposed_state=proposed_state,
         impacts=data.get("impacts", []),
@@ -236,6 +250,10 @@ def main() -> None:
         type=Path,
         help="Write the selected output payload to a JSON file.",
     )
+    parser.add_argument(
+        "--only-task",
+        help="Run one dependency-free task from the scenario graph, such as T-IMPACT.",
+    )
     args = parser.parse_args()
 
     if args.resume:
@@ -248,6 +266,7 @@ def main() -> None:
             auto_approve=args.auto_approve_demo,
             approval_file=args.approval_file,
             runtime_name=args.runtime or "deterministic",
+            only_task=args.only_task,
         )
     payload = _render_result(result, args.output)
     if args.output_file:
