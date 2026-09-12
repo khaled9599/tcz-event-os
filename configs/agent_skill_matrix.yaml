@@ -1,0 +1,39 @@
+version: 0.1
+agents:
+  executive_producer:
+    required: [orchestration.task_decomposition, orchestration.change_impact, orchestration.approval_routing]
+  context_builder:
+    required: [orchestration.context_building]
+  supervisor:
+    required: [orchestration.approval_routing]
+  independent_judge:
+    required: [quality.independent_judging]
+    optional: [quality.visual_critique]
+  creative_spatial:
+    required: [creative.spatial_zoning, creative.installation_design, visualization.reference_engineering]
+  blender_production:
+    required: [visualization.reference_engineering, visualization.blender_modeling, visualization.blender_assembly, visualization.render_validation]
+  production_engineering:
+    required: [production.buildability_review, production.material_takeoff, visualization.blender_assembly]
+    optional: [creative.installation_design, orchestration.change_impact]
+  change_impact:
+    required: [orchestration.change_impact]
+  av_systems:
+    required: [technical.av_system_design]
+    optional: [orchestration.change_impact]
+  rigging:
+    required: [technical.rigging_review]
+    optional: [orchestration.change_impact]
+  electrical_power:
+    required: [technical.electrical_loads]
+    optional: [orchestration.change_impact]
+  show_control:
+    required: [technical.show_control]
+  hospitality:
+    required: [operations.hospitality_planning]
+  accessibility:
+    required: [operations.accessibility_review]
+  vendor_management:
+    required: [commercial.vendor_rfq]
+  warehouse_inventory:
+    required: [operations.inventory_control]
