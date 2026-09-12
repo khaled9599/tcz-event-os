@@ -1,9 +1,15 @@
 from pathlib import Path
 
-from brain.contracts.runtime_contracts import RunPhase, SideEffectClass, TaskGraph, TaskNode
+from brain.contracts.runtime_contracts import (
+    FailureClass,
+    RunPhase,
+    SideEffectClass,
+    TaskGraph,
+    TaskNode,
+)
+from brain.runtime.agent_runtime import AgentResult
 from brain.runtime.orchestrator import BrainOrchestrator
 from brain.runtime.skill_loader import SkillLoader
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -74,4 +80,84 @@ def test_rejection_returns_run_to_plan():
 
     assert result.run.phase == RunPhase.PLAN
     assert task.status == "blocked"
+    assert result.committed_state is None
+
+
+class RecordingRuntime:
+    def __init__(self):
+        self.requests = []
+
+    def execute(self, request):
+        self.requests.append(request)
+        return AgentResult(
+            task_id=request.task.task_id,
+            agent_id=request.task.assigned_agent,
+            summary="recorded",
+            outputs={"context": request.context.model_dump(mode="json")},
+            evidence_refs=[request.context.context_id],
+        )
+
+
+def test_pluggable_runtime_receives_context_and_skills():
+    runtime = RecordingRuntime()
+    task = TaskNode(
+        task_id="T1",
+        objective="Assess change",
+        object_id="KANVA_ENTRANCE_01",
+        assigned_agent="executive_producer",
+        required_skills=["orchestration.change_impact"],
+        acceptance_criteria=["impact identified"],
+    )
+    graph = TaskGraph(objective="Assess entrance change", nodes=[task])
+    brain = BrainOrchestrator(ROOT, agent_runtime=runtime)
+
+    result = brain.start(
+        objective="Increase entrance height",
+        graph=graph,
+        before_state={"height_mm": 4200},
+        proposed_state={"height_mm": 5500},
+        impacts=["production"],
+        risks=["quantity changes"],
+    )
+
+    assert result.run.phase == RunPhase.COMPLETED
+    assert runtime.requests[0].context.authoritative_state["before"]["height_mm"] == 4200
+    assert runtime.requests[0].context.authoritative_state["proposed"]["height_mm"] == 5500
+    assert runtime.requests[0].skills[0]["skill_id"] == "orchestration.change_impact"
+    assert result.run.context_package_ids == [runtime.requests[0].context.context_id]
+
+
+class FailingRuntime:
+    def execute(self, request):
+        return AgentResult(
+            task_id=request.task.task_id,
+            agent_id=request.task.assigned_agent,
+            status="failed",
+            summary="invalid output",
+            failure_class=FailureClass.INVALID_OUTPUT,
+            failure_detail="missing required structured output",
+        )
+
+
+def test_agent_failure_is_classified_and_not_committed():
+    task = TaskNode(
+        task_id="T1",
+        objective="Assess change",
+        assigned_agent="executive_producer",
+        required_skills=["orchestration.change_impact"],
+    )
+    graph = TaskGraph(objective="Assess entrance change", nodes=[task])
+    brain = BrainOrchestrator(ROOT, agent_runtime=FailingRuntime())
+
+    result = brain.start(
+        objective="Increase entrance height",
+        graph=graph,
+        before_state={"height_mm": 4200},
+        proposed_state={"height_mm": 5500},
+        impacts=[],
+        risks=[],
+    )
+
+    assert result.run.phase == RunPhase.FAILED
+    assert result.run.failure_class == FailureClass.INVALID_OUTPUT
     assert result.committed_state is None

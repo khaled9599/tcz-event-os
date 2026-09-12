@@ -34,6 +34,8 @@ Append-only Event History
 4. `docs/architecture/AUTHORITY_APPROVAL_MODEL.md`
 5. `docs/architecture/EVIDENCE_PROVENANCE_MODEL.md`
 
+For a concise system overview, see `docs/PROJECT_BRIEF.md`. For researched upstream references and adoption decisions, see `docs/resources/RESOURCE_CATALOG.md`.
+
 ## Skills layer
 
 Agents are roles with ownership and authority. Skills are reusable operating procedures loaded only when needed.
@@ -57,4 +59,4 @@ python examples/jotun_kanva/run_vertical_slice.py
 
 The Jotun vertical slice demonstrates controlled change, impact detection, QA, approval policy, and append-only event history.
 
-See `docs/AGENT_CATALOG.md`, `configs/skills_registry.yaml`, `configs/agent_skill_matrix.yaml`, `docs/sources/SOURCE_REGISTRY.md`, and `docs/ROADMAP.md` for the full system map.
+See `docs/PROJECT_BRIEF.md`, `docs/resources/RESOURCE_CATALOG.md`, `docs/AGENT_CATALOG.md`, `configs/skills_registry.yaml`, `configs/agent_skill_matrix.yaml`, `docs/sources/SOURCE_REGISTRY.md`, and `docs/ROADMAP.md` for the full system map.

@@ -6,13 +6,22 @@ from typing import Any
 
 from brain.contracts.runtime_contracts import (
     ApprovalPacket,
+    FailureClass,
     RunPhase,
     RunTrace,
     SkillActivation,
     TaskGraph,
     TaskNode,
 )
+from brain.runtime.agent_runtime import (
+    AgentExecutionRequest,
+    AgentResult,
+    AgentRuntime,
+    DeterministicAgentRuntime,
+)
 from brain.runtime.approval_policy import approval_required, can_execute
+from brain.runtime.context_builder import BrainContextBuilder
+from brain.runtime.judge import IndependentJudge
 from brain.runtime.skill_loader import SkillLoader
 from brain.runtime.workflow_engine import require_all_completed, require_transition
 
@@ -23,6 +32,7 @@ class OrchestrationResult:
     graph: TaskGraph
     approvals: list[ApprovalPacket] = field(default_factory=list)
     outputs: dict[str, dict[str, Any]] = field(default_factory=dict)
+    agent_results: dict[str, AgentResult] = field(default_factory=dict)
     committed_state: dict[str, Any] | None = None
 
 
@@ -34,9 +44,18 @@ class BrainOrchestrator:
     approval pauses, verify outputs, and commit only after required work passes.
     """
 
-    def __init__(self, repo_root: str | Path):
+    def __init__(
+        self,
+        repo_root: str | Path,
+        agent_runtime: AgentRuntime | None = None,
+        context_builder: BrainContextBuilder | None = None,
+        judge: IndependentJudge | None = None,
+    ):
         self.repo_root = Path(repo_root)
         self.skills = SkillLoader(self.repo_root)
+        self.agent_runtime = agent_runtime or DeterministicAgentRuntime()
+        self.context_builder = context_builder or BrainContextBuilder()
+        self.judge = judge or IndependentJudge()
 
     def _activate_skills(self, run: RunTrace, task: TaskNode) -> None:
         if not task.assigned_agent:
@@ -109,7 +128,7 @@ class BrainOrchestrator:
             return result
 
         run.phase = require_transition(run.phase, RunPhase.EXECUTE)
-        return self._execute_verify_commit(result, proposed_state)
+        return self._execute_verify_commit(result, before_state, proposed_state, impacts, risks)
 
     def resume(
         self,
@@ -144,7 +163,10 @@ class BrainOrchestrator:
             task.status = "pending"
 
         result.run.phase = require_transition(result.run.phase, RunPhase.EXECUTE)
-        return self._execute_verify_commit(result, proposed_state)
+        approval_impacts = result.approvals[0].impacts if result.approvals else []
+        approval_risks = result.approvals[0].risks if result.approvals else []
+        before_state = result.approvals[0].before if result.approvals else {}
+        return self._execute_verify_commit(result, before_state, proposed_state, approval_impacts, approval_risks)
 
     def _validate_graph(self, graph: TaskGraph) -> None:
         known_ids = {task.task_id for task in graph.nodes}
@@ -156,7 +178,10 @@ class BrainOrchestrator:
     def _execute_verify_commit(
         self,
         result: OrchestrationResult,
+        before_state: dict[str, Any],
         proposed_state: dict[str, Any],
+        impacts: list[str],
+        risks: list[str],
     ) -> OrchestrationResult:
         graph = result.graph
         completed = {task.task_id for task in graph.nodes if task.status == "completed"}
@@ -169,30 +194,71 @@ class BrainOrchestrator:
                     continue
                 if all(dep in completed for dep in task.depends_on):
                     task.status = "running"
-                    result.outputs[task.task_id] = {
-                        "agent": task.assigned_agent,
-                        "objective": task.objective,
-                        "skills": task.required_skills,
-                        "accepted": True,
-                    }
-                    task.status = "completed"
-                    completed.add(task.task_id)
-                    progressed = True
+                    try:
+                        skills = self.skills.resolve(task.assigned_agent, task.required_skills) if task.assigned_agent else []
+                        context = self.context_builder.build(
+                            run_id=result.run.run_id,
+                            task=task,
+                            before_state=before_state,
+                            proposed_state=proposed_state,
+                            impacts=impacts,
+                            risks=risks,
+                            prior_outputs=result.outputs,
+                        )
+                        if context.context_id not in result.run.context_package_ids:
+                            result.run.context_package_ids.append(context.context_id)
+                        agent_result = self.agent_runtime.execute(
+                            AgentExecutionRequest(
+                                run_id=result.run.run_id,
+                                task=task,
+                                context=context,
+                                skills=skills,
+                            )
+                        )
+                        if not agent_result.accepted:
+                            task.status = "failed"
+                            result.run.failure_class = agent_result.failure_class or FailureClass.INVALID_OUTPUT
+                            result.run.failure_detail = agent_result.failure_detail or "agent result was not accepted"
+                            result.run.phase = require_transition(result.run.phase, RunPhase.FAILED)
+                            return result
+                        result.agent_results[task.task_id] = agent_result
+                        result.outputs[task.task_id] = agent_result.model_dump(mode="json")
+                        task.status = "completed"
+                        completed.add(task.task_id)
+                        progressed = True
+                    except Exception as exc:  # noqa: BLE001 - classify adapter failures at the workflow boundary.
+                        task.status = "failed"
+                        result.run.failure_class = self._classify_failure(exc)
+                        result.run.failure_detail = str(exc)
+                        result.run.phase = require_transition(result.run.phase, RunPhase.FAILED)
+                        return result
             if not progressed:
                 raise RuntimeError("task graph deadlocked, blocked, or contains a dependency cycle")
 
         result.run.phase = require_transition(result.run.phase, RunPhase.VERIFY)
-        result.run.judge_results.append({
-            "judge": "independent_judge",
-            "decision": "PASS",
-            "reason": "vertical-slice acceptance checks passed",
-        })
+        for task in graph.nodes:
+            review = self.judge.review(task, result.agent_results[task.task_id])
+            result.run.judge_results.append(review)
+            if review["decision"] != "PASS":
+                result.run.failure_class = FailureClass.QUALITY_GATE
+                result.run.failure_detail = f"judge failed task {task.task_id}"
+                result.run.phase = require_transition(result.run.phase, RunPhase.FAILED)
+                return result
 
         require_all_completed(task.status for task in graph.nodes)
         result.run.phase = require_transition(result.run.phase, RunPhase.COMMIT)
         result.committed_state = proposed_state
         result.run.phase = require_transition(result.run.phase, RunPhase.COMPLETED)
         return result
+
+    def _classify_failure(self, exc: Exception) -> FailureClass:
+        if isinstance(exc, ValueError):
+            return FailureClass.INVALID_OUTPUT
+        if isinstance(exc, PermissionError):
+            return FailureClass.PERMISSION
+        if isinstance(exc, RuntimeError):
+            return FailureClass.EXTERNAL_DEPENDENCY
+        return FailureClass.TRANSIENT_TOOL
 
     def run_vertical_slice(
         self,
