@@ -2,7 +2,13 @@ import json
 from pathlib import Path
 
 from brain.contracts.runtime_contracts import RunPhase
-from brain.runtime.cli import resume_approval_file, run_scenario, write_approval_file
+from brain.runtime.cli import (
+    _render_result,
+    resume_approval_file,
+    run_scenario,
+    write_approval_file,
+    write_output_file,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 SCENARIO = ROOT / "examples" / "jotun_kanva" / "change_entrance_height.yaml"
@@ -47,3 +53,16 @@ def test_cli_scenario_resumes_from_approval_file(tmp_path):
     assert resumed.run.phase == RunPhase.COMPLETED
     assert resumed.committed_state["height_mm"] == 5500
     assert all(packet.status == "approved" for packet in resumed.approvals)
+    assert json.loads(approval_file.read_text())["runtime"] == "deterministic"
+
+
+def test_cli_can_write_full_output_file(tmp_path):
+    output_file = tmp_path / "full_result.json"
+    result = run_scenario(SCENARIO, auto_approve=True)
+    payload = _render_result(result, "full")
+
+    write_output_file(payload, output_file)
+    saved = json.loads(output_file.read_text())
+
+    assert saved["summary"]["phase"] == "completed"
+    assert saved["checkpoint"]["agent_results"]["T-IMPACT"]["outputs"]

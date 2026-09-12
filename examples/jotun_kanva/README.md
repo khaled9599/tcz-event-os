@@ -30,3 +30,9 @@ python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --r
 ```
 
 This mode requires the optional OpenAI SDK and `OPENAI_API_KEY`. It only replaces `T-IMPACT`; the remaining tasks use the deterministic runtime until each specialist adapter is promoted.
+
+Save a full result for inspection:
+
+```bash
+python -m brain.runtime.cli --resume work/jotun_openai_approvals.json --output full --output-file work/jotun_openai_full_result.json
+```

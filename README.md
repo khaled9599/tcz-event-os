@@ -59,6 +59,7 @@ python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --a
 python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --approval-file work/jotun_approvals.json
 python -m brain.runtime.cli --resume work/jotun_approvals.json
 python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --runtime openai-impact --approval-file work/jotun_openai_approvals.json
+python -m brain.runtime.cli --resume work/jotun_openai_approvals.json --output full --output-file work/jotun_openai_full_result.json
 ```
 
 The Jotun vertical slice demonstrates controlled change, impact detection, QA, approval policy, and append-only event history.

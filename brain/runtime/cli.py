@@ -94,6 +94,26 @@ def _serialize_result(result: OrchestrationResult, proposed_state: dict[str, Any
     }
 
 
+def _full_result(result: OrchestrationResult) -> dict[str, Any]:
+    return {
+        "summary": _summarize(result),
+        "checkpoint": _serialize_result(result, result.committed_state or {}),
+    }
+
+
+def _render_result(result: OrchestrationResult, output: str) -> dict[str, Any]:
+    if output == "summary":
+        return _summarize(result)
+    if output == "full":
+        return _full_result(result)
+    raise ValueError(f"unknown output mode: {output}")
+
+
+def write_output_file(payload: dict[str, Any], path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+
+
 def _deserialize_result(data: dict[str, Any]) -> OrchestrationResult:
     return OrchestrationResult(
         run=RunTrace.model_validate(data["run"]),
@@ -111,9 +131,14 @@ def _deserialize_result(data: dict[str, Any]) -> OrchestrationResult:
     )
 
 
-def _approval_checkpoint(result: OrchestrationResult, proposed_state: dict[str, Any]) -> dict[str, Any]:
+def _approval_checkpoint(
+    result: OrchestrationResult,
+    proposed_state: dict[str, Any],
+    runtime_name: str,
+) -> dict[str, Any]:
     return {
         "instructions": "Set each decision to approved, rejected, revision_requested, or pending. Then resume with --resume this_file.json.",
+        "runtime": runtime_name,
         "decisions": {
             packet.approval_id: packet.status
             for packet in result.approvals
@@ -122,9 +147,14 @@ def _approval_checkpoint(result: OrchestrationResult, proposed_state: dict[str, 
     }
 
 
-def write_approval_file(result: OrchestrationResult, proposed_state: dict[str, Any], path: Path) -> None:
+def write_approval_file(
+    result: OrchestrationResult,
+    proposed_state: dict[str, Any],
+    path: Path,
+    runtime_name: str = "deterministic",
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(_approval_checkpoint(result, proposed_state), indent=2, sort_keys=True))
+    path.write_text(json.dumps(_approval_checkpoint(result, proposed_state, runtime_name), indent=2, sort_keys=True))
 
 
 def _build_runtime(runtime_name: str):
@@ -135,9 +165,10 @@ def _build_runtime(runtime_name: str):
     raise ValueError(f"unknown runtime: {runtime_name}")
 
 
-def resume_approval_file(path: Path, *, runtime_name: str = "deterministic") -> OrchestrationResult:
+def resume_approval_file(path: Path, *, runtime_name: str | None = None) -> OrchestrationResult:
     data = json.loads(path.read_text())
-    brain = BrainOrchestrator(_repo_root(), agent_runtime=_build_runtime(runtime_name))
+    resolved_runtime = runtime_name or data.get("runtime", "deterministic")
+    brain = BrainOrchestrator(_repo_root(), agent_runtime=_build_runtime(resolved_runtime))
     result = _deserialize_result(data["checkpoint"])
     proposed_state = data["checkpoint"].get("proposed_state", {})
     return brain.resume(result, data.get("decisions", {}), proposed_state)
@@ -163,7 +194,7 @@ def run_scenario(
         risks=data.get("risks", []),
     )
     if approval_file and result.approvals:
-        write_approval_file(result, proposed_state, approval_file)
+        write_approval_file(result, proposed_state, approval_file, runtime_name=runtime_name)
     if auto_approve and result.approvals:
         decisions = {packet.approval_id: "approved" for packet in result.approvals}
         result = brain.resume(result, decisions, proposed_state)
@@ -191,8 +222,19 @@ def main() -> None:
     parser.add_argument(
         "--runtime",
         choices=["deterministic", "openai-impact"],
-        default="deterministic",
+        default=None,
         help="Agent runtime to use. openai-impact only replaces T-IMPACT with an OpenAI-backed agent.",
+    )
+    parser.add_argument(
+        "--output",
+        choices=["summary", "full"],
+        default="summary",
+        help="Choose summary output or the full serialized run with agent results.",
+    )
+    parser.add_argument(
+        "--output-file",
+        type=Path,
+        help="Write the selected output payload to a JSON file.",
     )
     args = parser.parse_args()
 
@@ -205,9 +247,12 @@ def main() -> None:
             args.scenario,
             auto_approve=args.auto_approve_demo,
             approval_file=args.approval_file,
-            runtime_name=args.runtime,
+            runtime_name=args.runtime or "deterministic",
         )
-    print(json.dumps(_summarize(result), indent=2, sort_keys=True))
+    payload = _render_result(result, args.output)
+    if args.output_file:
+        write_output_file(payload, args.output_file)
+    print(json.dumps(payload, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

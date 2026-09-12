@@ -3,7 +3,7 @@ from pathlib import Path
 
 from brain.contracts.runtime_contracts import RunPhase
 from brain.runtime.agent_runtime import DelegatingAgentRuntime
-from brain.runtime.cli import run_scenario
+from brain.runtime.cli import resume_approval_file, run_scenario
 from brain.runtime.openai_agents_adapter import OpenAIImpactRuntime
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,3 +56,21 @@ def test_openai_impact_runtime_rejects_non_impact_task():
 
     assert result.run.phase == RunPhase.FAILED
     assert result.run.failure_detail == "OpenAIImpactRuntime only handles T-IMPACT"
+
+
+def test_approval_file_preserves_runtime_name(tmp_path):
+    approval_file = tmp_path / "openai_approvals.json"
+
+    result = run_scenario(SCENARIO, approval_file=approval_file, runtime_name="openai-impact", agent_runtime=DelegatingAgentRuntime({"T-IMPACT": OpenAIImpactRuntime(client=FakeOpenAIClient())}))
+
+    data = json.loads(approval_file.read_text())
+    data["decisions"] = {
+        approval_id: "approved"
+        for approval_id in data["decisions"]
+    }
+    approval_file.write_text(json.dumps(data))
+
+    assert result.run.phase == RunPhase.APPROVE
+    assert data["runtime"] == "openai-impact"
+    resumed = resume_approval_file(approval_file, runtime_name="deterministic")
+    assert resumed.run.phase == RunPhase.COMPLETED
