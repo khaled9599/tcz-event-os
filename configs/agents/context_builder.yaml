@@ -9,6 +9,7 @@ can_mutate: []
 can_approve: []
 prohibited_actions: [invent missing facts, mutate canonical state]
 tools: [project_state, knowledge_retrieval, provenance_index]
+skills: [orchestration.context_building]
 knowledge_packs: [context_engineering]
 default_approval_level: L0_autonomous
 evaluation_rubric: [relevance, authority, token efficiency, no missing critical dependencies]
