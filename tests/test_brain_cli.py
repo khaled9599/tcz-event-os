@@ -115,3 +115,28 @@ def test_cli_pauses_at_production_approval_gate_then_resumes(tmp_path):
     assert list(resumed.agent_results) == ["T-IMPACT", "T-SPATIAL", "T-PRODUCTION"]
     assert production.outputs["approval_gate"]["level"] == "L2"
     assert production.outputs["material_takeoff_impact"]["quantity_status"] == "stale_until_remeasured"
+
+
+def test_cli_pauses_at_rigging_safety_gate_then_resumes(tmp_path):
+    approval_file = tmp_path / "rigging_approvals.json"
+    result = run_scenario(SCENARIO, until_task="T-RIGGING", approval_file=approval_file)
+
+    assert result.run.phase == RunPhase.APPROVE
+    assert result.committed_state is None
+    assert [packet.required_level for packet in result.approvals] == ["L2", "L3"]
+
+    data = json.loads(approval_file.read_text())
+    data["decisions"] = {
+        approval_id: "approved"
+        for approval_id in data["decisions"]
+    }
+    approval_file.write_text(json.dumps(data))
+
+    resumed = resume_approval_file(approval_file)
+    rigging = resumed.agent_results["T-RIGGING"]
+
+    assert resumed.run.phase == RunPhase.COMPLETED
+    assert list(resumed.agent_results) == ["T-IMPACT", "T-SPATIAL", "T-PRODUCTION", "T-RIGGING"]
+    assert rigging.outputs["approval_gate"]["level"] == "L3"
+    assert rigging.outputs["rigging_review"]["status"] == "qualified_signoff_required"
+    assert "qualified rigging or structural signoff is recorded" in rigging.outputs["blocked_until"]

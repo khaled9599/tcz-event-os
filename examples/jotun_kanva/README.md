@@ -58,3 +58,11 @@ python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --u
 ```
 
 This pauses at L2 approval before executing the production review.
+
+Run through the rigging safety gate:
+
+```bash
+python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --until-task T-RIGGING --approval-file work/rigging_approvals.json
+```
+
+This pauses with L2 and L3 approval packets before executing production and rigging reviews.

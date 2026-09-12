@@ -250,6 +250,59 @@ class DeterministicProductionRuntime:
         )
 
 
+class DeterministicRiggingRuntime:
+    """Offline rigging review for safety-critical temporary-structure implications."""
+
+    def execute(self, request: AgentExecutionRequest) -> AgentResult:
+        task = request.task
+        impact_output = request.context.prior_outputs.get("T-IMPACT", {}).get("outputs", {})
+        production_output = request.context.prior_outputs.get("T-PRODUCTION", {}).get("outputs", {})
+        height_delta_mm = impact_output.get("height_delta_mm")
+
+        outputs = {
+            "rigging_review": {
+                "status": "qualified_signoff_required",
+                "summary": "Height increase may affect stability, bracing, ballast, wind response, and installation method.",
+                "temporary_structure_assumptions": [
+                    "Existing support scheme is not considered verified for 5500mm height.",
+                    "Loads and restraint assumptions must be recalculated by qualified engineering.",
+                    "Production buildability approval does not authorize safety-critical rigging release.",
+                ],
+            },
+            "safety_critical_flags": [
+                "temporary-structure engineering review required",
+                "wind/load assumptions require verification",
+                "anchoring/ballast strategy must be checked",
+                "installation and dismantle method statement may need revision",
+            ],
+            "blocked_until": [
+                "qualified rigging or structural signoff is recorded",
+                "updated drawings/calculations support the 5500mm height",
+                "site constraints and base interface are verified",
+            ],
+            "approval_gate": {
+                "level": "L3",
+                "reason": "Safety-critical temporary-structure assumptions may change.",
+            },
+            "height_delta_mm": height_delta_mm,
+            "production_dependency": production_output.get("buildability_review", {}),
+            "context_id": request.context.context_id,
+        }
+        return AgentResult(
+            task_id=task.task_id,
+            agent_id=task.assigned_agent,
+            summary="Rigging review requires qualified L3 signoff before safety-critical release.",
+            outputs=outputs,
+            evidence_refs=[request.context.context_id],
+            assumptions=outputs["rigging_review"]["temporary_structure_assumptions"],
+            risks=[
+                "Unverified height increase could invalidate temporary-structure stability assumptions.",
+                "Rigging approval must come from the qualified review path before release.",
+            ],
+            requires_human_decision=False,
+        )
+
+
 class DelegatingAgentRuntime:
     """Route selected tasks to a specialist runtime and keep the rest deterministic."""
 
