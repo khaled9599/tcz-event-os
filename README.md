@@ -15,6 +15,8 @@ Context Builder + Workflow Engine
    |
 Specialist Agents
    |
+Task-specific Skills
+   |
 Tools and MCP Servers
    |
 Self-check -> Judge -> Approval Gate
@@ -32,6 +34,17 @@ Append-only Event History
 4. `docs/architecture/AUTHORITY_APPROVAL_MODEL.md`
 5. `docs/architecture/EVIDENCE_PROVENANCE_MODEL.md`
 
+## Skills layer
+
+Agents are roles with ownership and authority. Skills are reusable operating procedures loaded only when needed.
+
+- `configs/skills_registry.yaml` defines every skill, source provenance, path, and intended agents.
+- `configs/agent_skill_matrix.yaml` maps agents to required and optional skills.
+- `skills/` contains the actual task procedures.
+- `knowledge_packs` in agent charters remain background reference and are not a substitute for operational skills.
+
+Phase 1 agents now reference their skills directly in their charters. Specialist Phase 2 skills are also registered so runtime work can activate them without redesigning the architecture.
+
 ## Quick start
 
 ```bash
@@ -44,4 +57,4 @@ python examples/jotun_kanva/run_vertical_slice.py
 
 The Jotun vertical slice demonstrates controlled change, impact detection, QA, approval policy, and append-only event history.
 
-See `docs/AGENT_CATALOG.md`, `docs/sources/SOURCE_REGISTRY.md`, and `docs/ROADMAP.md` for the full system map.
+See `docs/AGENT_CATALOG.md`, `configs/skills_registry.yaml`, `configs/agent_skill_matrix.yaml`, `docs/sources/SOURCE_REGISTRY.md`, and `docs/ROADMAP.md` for the full system map.
