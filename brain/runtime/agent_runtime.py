@@ -76,6 +76,69 @@ class DeterministicAgentRuntime:
         )
 
 
+class DeterministicImpactRuntime:
+    """Offline impact analyzer for the first planning phase."""
+
+    def execute(self, request: AgentExecutionRequest) -> AgentResult:
+        task = request.task
+        state = request.context.authoritative_state
+        before = state.get("before", {})
+        proposed = state.get("proposed", {})
+        impacts = list(state.get("impacts", []))
+        risks = list(state.get("risks", []))
+        before_height = before.get("height_mm")
+        proposed_height = proposed.get("height_mm")
+        height_delta = proposed_height - before_height if before_height is not None and proposed_height is not None else None
+
+        outputs = {
+            "affected_domains": impacts,
+            "required_agents": [
+                "creative_spatial",
+                "production_engineering",
+                "rigging",
+                "blender_production",
+                "independent_judge",
+            ],
+            "approval_levels": [
+                {
+                    "task_id": "T-PRODUCTION",
+                    "level": "L2",
+                    "reason": "Buildability, quantities, cost, schedule, and material state may change.",
+                },
+                {
+                    "task_id": "T-RIGGING",
+                    "level": "L3",
+                    "reason": "Height change can affect safety-critical temporary-structure assumptions.",
+                },
+            ],
+            "risks": risks,
+            "assumptions": [
+                f"Baseline height is {before_height}mm and marked {before.get('verification', 'unknown')}.",
+                f"Proposed height is {proposed_height}mm and marked {proposed.get('verification', 'unknown')}.",
+                "No external tools are invoked in deterministic impact analysis.",
+            ],
+            "recommended_next_tasks": [
+                "Revise entrance geometry and preserve approved clear opening.",
+                "Review buildability and update material takeoff.",
+                "Review temporary-structure rigging implications.",
+                "Update Blender representation and validate render geometry.",
+                "Run independent judge on the revised package.",
+            ],
+            "height_delta_mm": height_delta,
+            "context_id": request.context.context_id,
+        }
+        return AgentResult(
+            task_id=task.task_id,
+            agent_id=task.assigned_agent,
+            summary=f"Impact analysis identified {len(impacts)} affected domains for {task.object_id}.",
+            outputs=outputs,
+            evidence_refs=[request.context.context_id],
+            assumptions=outputs["assumptions"],
+            risks=risks,
+            requires_human_decision=False,
+        )
+
+
 class DelegatingAgentRuntime:
     """Route selected tasks to a specialist runtime and keep the rest deterministic."""
 

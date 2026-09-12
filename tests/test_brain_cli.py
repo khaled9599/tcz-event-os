@@ -70,8 +70,12 @@ def test_cli_can_write_full_output_file(tmp_path):
 
 def test_cli_can_run_only_impact_task():
     result = run_scenario(SCENARIO, only_task="T-IMPACT")
+    impact = result.agent_results["T-IMPACT"]
 
     assert result.run.phase == RunPhase.COMPLETED
     assert list(result.agent_results) == ["T-IMPACT"]
     assert result.committed_state["height_mm"] == 5500
     assert {task.task_id for task in result.graph.nodes} == {"T-IMPACT"}
+    assert impact.outputs["height_delta_mm"] == 1300
+    assert "rigging" in impact.outputs["affected_domains"]
+    assert {"task_id": "T-RIGGING", "level": "L3", "reason": "Height change can affect safety-critical temporary-structure assumptions."} in impact.outputs["approval_levels"]

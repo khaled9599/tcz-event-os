@@ -42,3 +42,5 @@ Run only the first impact-analysis phase:
 ```bash
 python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --only-task T-IMPACT --output full --output-file work/impact_only_result.json
 ```
+
+The deterministic `T-IMPACT` path returns affected domains, required agents, approval levels, risks, assumptions, recommended next tasks, and the entrance height delta without needing OpenAI credits.

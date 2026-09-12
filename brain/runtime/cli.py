@@ -14,7 +14,11 @@ from brain.contracts.runtime_contracts import (
     TaskGraph,
     TaskNode,
 )
-from brain.runtime.agent_runtime import AgentResult, DelegatingAgentRuntime
+from brain.runtime.agent_runtime import (
+    AgentResult,
+    DelegatingAgentRuntime,
+    DeterministicImpactRuntime,
+)
 from brain.runtime.openai_agents_adapter import OpenAIImpactRuntime
 from brain.runtime.orchestrator import BrainOrchestrator, OrchestrationResult
 
@@ -171,7 +175,7 @@ def write_approval_file(
 
 def _build_runtime(runtime_name: str):
     if runtime_name == "deterministic":
-        return None
+        return DelegatingAgentRuntime({"T-IMPACT": DeterministicImpactRuntime()})
     if runtime_name == "openai-impact":
         return DelegatingAgentRuntime({"T-IMPACT": OpenAIImpactRuntime()})
     raise ValueError(f"unknown runtime: {runtime_name}")
