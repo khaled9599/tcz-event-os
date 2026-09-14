@@ -70,11 +70,15 @@ python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --u
 ```
 
 The Agent Control Room opens at `http://127.0.0.1:8000`. It includes the agent roster,
-advisory conversations, controlled workflow runs, L2/L3 approval decisions, task results,
+advisory conversations with drag-and-drop file attachments, controlled workflow runs, L2/L3 approval decisions, task results,
 event history, and the latest committed canonical state. It starts in deterministic mode,
 so an API key is not required. Set `OPENAI_API_KEY` before launch to enable the optional
 live-model conversation toggle; API secrets remain on the server. Leave `OPENAI_API_KEY`
 empty in `.env` to keep the entire interface in deterministic offline mode.
+
+Chat messages accept up to five attachments of 10 MB each. Text, Markdown, CSV, JSON,
+and YAML are extracted locally; images, PDF, Word, PowerPoint, and Excel files are stored
+locally and forwarded only when the live-model toggle is enabled.
 
 The Jotun vertical slice demonstrates controlled change, impact detection, QA, approval policy, and append-only event history.
 

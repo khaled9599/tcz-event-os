@@ -36,11 +36,23 @@ class ControlRoomStore:
                     role TEXT NOT NULL,
                     content TEXT NOT NULL,
                     provider TEXT NOT NULL,
+                    attachments_json TEXT NOT NULL DEFAULT '[]',
                     created_at TEXT NOT NULL
                 );
 
                 CREATE INDEX IF NOT EXISTS messages_agent_time
                 ON messages(agent_id, created_at);
+
+                CREATE TABLE IF NOT EXISTS attachments (
+                    attachment_id TEXT PRIMARY KEY,
+                    agent_id TEXT NOT NULL,
+                    filename TEXT NOT NULL,
+                    content_type TEXT NOT NULL,
+                    size_bytes INTEGER NOT NULL,
+                    storage_path TEXT NOT NULL,
+                    extracted_text TEXT,
+                    created_at TEXT NOT NULL
+                );
 
                 CREATE TABLE IF NOT EXISTS runs (
                     run_id TEXT PRIMARY KEY,
@@ -75,6 +87,76 @@ class ControlRoomStore:
                 ON events(run_id, event_id);
                 """
             )
+            columns = {
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(messages)").fetchall()
+            }
+            if "attachments_json" not in columns:
+                connection.execute(
+                    "ALTER TABLE messages ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]'"
+                )
+
+    def add_attachment(
+        self,
+        *,
+        agent_id: str,
+        filename: str,
+        content_type: str,
+        size_bytes: int,
+        storage_path: str,
+        extracted_text: str | None,
+    ) -> dict[str, Any]:
+        record = {
+            "attachment_id": f"ATT-{uuid4().hex[:12]}",
+            "agent_id": agent_id,
+            "filename": filename,
+            "content_type": content_type,
+            "size_bytes": size_bytes,
+            "storage_path": storage_path,
+            "extracted_text": extracted_text,
+            "created_at": utc_now(),
+        }
+        with self._connect() as connection:
+            connection.execute(
+                """
+                INSERT INTO attachments (
+                    attachment_id, agent_id, filename, content_type, size_bytes,
+                    storage_path, extracted_text, created_at
+                ) VALUES (
+                    :attachment_id, :agent_id, :filename, :content_type, :size_bytes,
+                    :storage_path, :extracted_text, :created_at
+                )
+                """,
+                record,
+            )
+        return record
+
+    def get_attachments(
+        self, agent_id: str, attachment_ids: list[str]
+    ) -> list[dict[str, Any]]:
+        if not attachment_ids:
+            return []
+        placeholders = ",".join("?" for _ in attachment_ids)
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"""
+                SELECT * FROM attachments
+                WHERE agent_id = ? AND attachment_id IN ({placeholders})
+                """,
+                (agent_id, *attachment_ids),
+            ).fetchall()
+        by_id = {row["attachment_id"]: dict(row) for row in rows}
+        missing = [item for item in attachment_ids if item not in by_id]
+        if missing:
+            raise ValueError("one or more attachments are missing or belong to another agent")
+        return [by_id[item] for item in attachment_ids]
+
+    def set_attachment_path(self, attachment_id: str, storage_path: str) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE attachments SET storage_path = ? WHERE attachment_id = ?",
+                (storage_path, attachment_id),
+            )
 
     def add_message(
         self,
@@ -84,7 +166,9 @@ class ControlRoomStore:
         content: str,
         provider: str,
         conversation_id: str | None = None,
+        attachments: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
+        public_attachments = attachments or []
         record = {
             "message_id": f"MSG-{uuid4().hex[:12]}",
             "conversation_id": conversation_id or f"AGENT-{agent_id}",
@@ -92,19 +176,24 @@ class ControlRoomStore:
             "role": role,
             "content": content,
             "provider": provider,
+            "attachments": public_attachments,
+            "attachments_json": json.dumps(public_attachments, sort_keys=True),
             "created_at": utc_now(),
         }
         with self._connect() as connection:
             connection.execute(
                 """
                 INSERT INTO messages (
-                    message_id, conversation_id, agent_id, role, content, provider, created_at
+                    message_id, conversation_id, agent_id, role, content, provider,
+                    attachments_json, created_at
                 ) VALUES (
-                    :message_id, :conversation_id, :agent_id, :role, :content, :provider, :created_at
+                    :message_id, :conversation_id, :agent_id, :role, :content, :provider,
+                    :attachments_json, :created_at
                 )
                 """,
                 record,
             )
+        record.pop("attachments_json")
         return record
 
     def list_messages(self, agent_id: str, limit: int = 100) -> list[dict[str, Any]]:
@@ -118,7 +207,12 @@ class ControlRoomStore:
                 """,
                 (agent_id, limit),
             ).fetchall()
-        return [dict(row) for row in rows]
+        records = []
+        for row in rows:
+            record = dict(row)
+            record["attachments"] = json.loads(record.pop("attachments_json"))
+            records.append(record)
+        return records
 
     def save_run(
         self,

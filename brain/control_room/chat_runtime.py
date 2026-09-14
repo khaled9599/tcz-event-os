@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import os
+from pathlib import Path
 from typing import Any, Protocol
 
 
@@ -13,6 +15,7 @@ class AdvisoryChatRuntime(Protocol):
         agent: dict[str, Any],
         message: str,
         history: list[dict[str, Any]],
+        attachments: list[dict[str, Any]],
     ) -> str:
         """Return an advisory response without mutating canonical state."""
 
@@ -26,13 +29,23 @@ class DeterministicAdvisoryRuntime:
         agent: dict[str, Any],
         message: str,
         history: list[dict[str, Any]],
+        attachments: list[dict[str, Any]],
     ) -> str:
         del history
         focus = ", ".join(agent.get("owns", [])[:3]) or agent.get(
             "department", "project work"
         )
+        attachment_note = ""
+        if attachments:
+            names = ", ".join(item["filename"] for item in attachments)
+            readable = sum(bool(item.get("extracted_text")) for item in attachments)
+            attachment_note = (
+                f"\n\nAttached files received: {names}. "
+                f"Readable text was extracted from {readable} of {len(attachments)} file(s)."
+            )
+        received = f'"{message.strip()}"' if message.strip() else "the attached file(s)"
         return (
-            f'I am {agent["name"]}. I received: "{message.strip()}"\n\n'
+            f'I am {agent["name"]}. I received: {received}{attachment_note}\n\n'
             f"My review boundary is {focus}. {agent['mission']}\n\n"
             "This is an advisory response. No project state or external tool was changed. "
             "Submit the Jotun workflow when you want this request routed through context, "
@@ -53,19 +66,72 @@ class OpenAIAdvisoryRuntime:
         agent: dict[str, Any],
         message: str,
         history: list[dict[str, Any]],
+        attachments: list[dict[str, Any]],
     ) -> str:
         client = self.client or self._build_client()
+        recent_history = history[-12:]
+        input_items = []
+        for index, item in enumerate(recent_history):
+            if item["role"] not in {"user", "assistant"}:
+                continue
+            current_attachments = attachments if index == len(recent_history) - 1 else []
+            input_items.append(
+                {
+                    "role": item["role"],
+                    "content": self._history_content(item, current_attachments),
+                }
+            )
         response = client.responses.create(
             model=self.model,
             instructions=self._instructions(agent),
-            input=[
-                {"role": item["role"], "content": item["content"]}
-                for item in history[-12:]
-                if item["role"] in {"user", "assistant"}
-            ],
+            input=input_items,
             store=False,
         )
         return response.output_text
+
+    def _history_content(
+        self, item: dict[str, Any], attachments: list[dict[str, Any]]
+    ) -> str | list[dict[str, Any]]:
+        if not attachments:
+            names = [record["filename"] for record in item.get("attachments", [])]
+            suffix = f"\n\n[Attached files: {', '.join(names)}]" if names else ""
+            return f"{item['content']}{suffix}"
+
+        blocks: list[dict[str, Any]] = []
+        if item["content"]:
+            blocks.append({"type": "input_text", "text": item["content"]})
+        for attachment in attachments:
+            if attachment.get("extracted_text"):
+                blocks.append(
+                    {
+                        "type": "input_text",
+                        "text": (
+                            f"Attached file {attachment['filename']}:\n"
+                            f"{attachment['extracted_text']}"
+                        ),
+                    }
+                )
+            else:
+                path = Path(attachment["storage_path"])
+                encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+                data_url = f"data:{attachment['content_type']};base64,{encoded}"
+                if attachment["content_type"].startswith("image/"):
+                    blocks.append(
+                        {
+                            "type": "input_image",
+                            "image_url": data_url,
+                            "detail": "auto",
+                        }
+                    )
+                    continue
+                blocks.append(
+                    {
+                        "type": "input_file",
+                        "filename": attachment["filename"],
+                        "file_data": data_url,
+                    }
+                )
+        return blocks
 
     def _build_client(self) -> Any:
         try:

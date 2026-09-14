@@ -7,13 +7,17 @@ const state = {
   health: null,
   tab: "chat",
   eventSource: null,
+  pendingAttachments: [],
+  uploading: false,
 };
 
 const $ = (selector) => document.querySelector(selector);
 
 async function api(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  if (!(options.body instanceof FormData)) headers["Content-Type"] = "application/json";
   const response = await fetch(path, {
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+    headers,
     ...options,
   });
   const payload = await response.json().catch(() => ({}));
@@ -94,11 +98,13 @@ function renderAgents() {
 
 async function selectAgent(agentId) {
   state.selectedAgent = state.agents.find((agent) => agent.id === agentId);
+  state.pendingAttachments = [];
   state.messages = await api(`/api/agents/${encodeURIComponent(agentId)}/messages`);
   renderAgents();
   renderAgentHeader();
   renderAgentInspector();
   renderMessages();
+  renderPendingAttachments();
 }
 
 function renderAgentHeader() {
@@ -138,10 +144,72 @@ function renderMessages() {
   list.innerHTML = state.messages.map((message) => `
     <article class="message ${escapeHtml(message.role)}">
       <div class="message-meta">${message.role === "user" ? "You" : escapeHtml(state.selectedAgent.name)} · ${escapeHtml(message.provider)}</div>
-      <div class="message-content">${escapeHtml(message.content)}</div>
+      ${message.content ? `<div class="message-content">${escapeHtml(message.content)}</div>` : ""}
+      ${renderAttachmentMarkup(message.attachments)}
     </article>
   `).join("");
   list.scrollTop = list.scrollHeight;
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function renderAttachmentMarkup(attachments = [], removable = false) {
+  if (!attachments.length) return "";
+  return `<div class="attachment-list">${attachments.map((attachment) => `
+    <span class="attachment-chip">
+      <span class="attachment-name">${escapeHtml(attachment.filename)}</span>
+      <span class="attachment-size">${escapeHtml(formatBytes(attachment.size_bytes))}</span>
+      ${removable ? `<button type="button" class="remove-attachment" data-remove-attachment="${escapeHtml(attachment.attachment_id)}" title="Remove ${escapeHtml(attachment.filename)}" aria-label="Remove ${escapeHtml(attachment.filename)}">&times;</button>` : ""}
+    </span>
+  `).join("")}</div>`;
+}
+
+function renderPendingAttachments() {
+  const container = $("#pending-attachments");
+  container.classList.toggle("hidden", !state.pendingAttachments.length);
+  container.innerHTML = renderAttachmentMarkup(state.pendingAttachments, true);
+  container.querySelectorAll("[data-remove-attachment]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.pendingAttachments = state.pendingAttachments.filter(
+        (item) => item.attachment_id !== button.dataset.removeAttachment,
+      );
+      renderPendingAttachments();
+    });
+  });
+}
+
+async function uploadFiles(fileList) {
+  if (!state.selectedAgent || state.uploading) return;
+  const files = Array.from(fileList || []);
+  if (!files.length) return;
+  if (state.pendingAttachments.length + files.length > 5) {
+    showToast("A message can include at most 5 attachments", true);
+    return;
+  }
+  state.uploading = true;
+  $("#attach-button").disabled = true;
+  try {
+    for (const file of files) {
+      const body = new FormData();
+      body.append("file", file);
+      const attachment = await api(
+        `/api/agents/${encodeURIComponent(state.selectedAgent.id)}/attachments`,
+        { method: "POST", body },
+      );
+      state.pendingAttachments.push(attachment);
+      renderPendingAttachments();
+    }
+  } catch (error) {
+    showToast(error.message, true);
+  } finally {
+    state.uploading = false;
+    $("#attach-button").disabled = false;
+    $("#attachment-input").value = "";
+  }
 }
 
 async function sendMessage(event) {
@@ -149,10 +217,10 @@ async function sendMessage(event) {
   const input = $("#message-input");
   const button = $("#send-button");
   const message = input.value.trim();
-  if (!message || !state.selectedAgent) return;
-  input.value = "";
+  if ((!message && !state.pendingAttachments.length) || !state.selectedAgent) return;
+  const attachments = [...state.pendingAttachments];
   button.disabled = true;
-  state.messages.push({ role: "user", content: message, provider: "pending" });
+  state.messages.push({ role: "user", content: message, provider: "pending", attachments });
   renderMessages();
   try {
     await api(`/api/agents/${encodeURIComponent(state.selectedAgent.id)}/messages`, {
@@ -160,8 +228,12 @@ async function sendMessage(event) {
       body: JSON.stringify({
         message,
         provider: $("#live-model-toggle").checked ? "openai" : "deterministic",
+        attachment_ids: attachments.map((item) => item.attachment_id),
       }),
     });
+    input.value = "";
+    state.pendingAttachments = [];
+    renderPendingAttachments();
     state.messages = await api(`/api/agents/${encodeURIComponent(state.selectedAgent.id)}/messages`);
     renderMessages();
   } catch (error) {
@@ -319,6 +391,8 @@ function connectRunEvents(runId) {
 
 document.addEventListener("DOMContentLoaded", () => {
   $("#message-form").addEventListener("submit", sendMessage);
+  $("#attach-button").addEventListener("click", () => $("#attachment-input").click());
+  $("#attachment-input").addEventListener("change", (event) => uploadFiles(event.target.files));
   $("#start-workflow").addEventListener("click", startWorkflow);
   $("#run-select").addEventListener("change", (event) => selectRun(event.target.value));
   document.querySelectorAll(".tab-button").forEach((button) => button.addEventListener("click", () => switchTab(button.dataset.tab)));
@@ -327,6 +401,21 @@ document.addEventListener("DOMContentLoaded", () => {
       event.preventDefault();
       $("#message-form").requestSubmit();
     }
+  });
+  const chatView = $("#chat-view");
+  ["dragenter", "dragover"].forEach((eventName) => {
+    chatView.addEventListener(eventName, (event) => {
+      event.preventDefault();
+      if (event.dataTransfer?.types.includes("Files")) chatView.classList.add("drag-active");
+    });
+  });
+  chatView.addEventListener("dragleave", (event) => {
+    if (!chatView.contains(event.relatedTarget)) chatView.classList.remove("drag-active");
+  });
+  chatView.addEventListener("drop", (event) => {
+    event.preventDefault();
+    chatView.classList.remove("drag-active");
+    uploadFiles(event.dataTransfer?.files);
   });
   initialize();
 });

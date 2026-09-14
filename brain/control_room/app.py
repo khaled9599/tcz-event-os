@@ -5,14 +5,15 @@ import json
 import os
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from brain.control_room.attachments import MAX_ATTACHMENT_BYTES
 from brain.control_room.service import (
     AgentNotFound,
     ControlRoomService,
@@ -22,8 +23,9 @@ from brain.control_room.service import (
 
 
 class ChatRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=8000)
+    message: str = Field(default="", max_length=8000)
     provider: Literal["deterministic", "openai", "auto"] = "deterministic"
+    attachment_ids: list[str] = Field(default_factory=list, max_length=5)
 
 
 class WorkflowRequest(BaseModel):
@@ -88,10 +90,35 @@ def create_app(
         except AgentNotFound as exc:
             raise HTTPException(status_code=404, detail="agent not found") from exc
 
+    @app.post("/api/agents/{agent_id}/attachments", status_code=201)
+    async def upload_attachment(
+        agent_id: str, file: Annotated[UploadFile, File()]
+    ) -> dict:
+        try:
+            data = await file.read(MAX_ATTACHMENT_BYTES + 1)
+            return control_room.upload_attachment(
+                agent_id,
+                filename=file.filename or "attachment",
+                content_type=file.content_type,
+                data=data,
+            )
+        except AgentNotFound as exc:
+            raise HTTPException(status_code=404, detail="agent not found") from exc
+        except ValueError as exc:
+            status = 413 if "10 MB" in str(exc) else 400
+            raise HTTPException(status_code=status, detail=str(exc)) from exc
+        finally:
+            await file.close()
+
     @app.post("/api/agents/{agent_id}/messages")
     def send_message(agent_id: str, payload: ChatRequest) -> dict:
         try:
-            return control_room.chat(agent_id, payload.message, payload.provider)
+            return control_room.chat(
+                agent_id,
+                payload.message,
+                payload.provider,
+                payload.attachment_ids,
+            )
         except AgentNotFound as exc:
             raise HTTPException(status_code=404, detail="agent not found") from exc
         except LiveRuntimeUnavailable as exc:

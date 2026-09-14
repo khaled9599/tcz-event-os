@@ -7,6 +7,14 @@ from typing import Any
 import yaml
 
 from brain.contracts.runtime_contracts import RunPhase
+from brain.control_room.attachments import (
+    MAX_ATTACHMENTS_PER_MESSAGE,
+    extract_text,
+    normalized_content_type,
+    public_attachment,
+    safe_filename,
+    validate_attachment,
+)
 from brain.control_room.chat_runtime import (
     AdvisoryChatRuntime,
     DeterministicAdvisoryRuntime,
@@ -47,6 +55,8 @@ class ControlRoomService:
     ):
         self.repo_root = Path(repo_root).resolve()
         self.store = ControlRoomStore(db_path)
+        self.upload_dir = self.store.path.parent / "control_room_uploads"
+        self.upload_dir.mkdir(parents=True, exist_ok=True)
         self.deterministic_chat = deterministic_chat or DeterministicAdvisoryRuntime()
         self.openai_chat = openai_chat or OpenAIAdvisoryRuntime()
         self._agents = self._load_agents()
@@ -101,25 +111,64 @@ class ControlRoomService:
         self.get_agent(agent_id)
         return self.store.list_messages(agent_id)
 
+    def upload_attachment(
+        self,
+        agent_id: str,
+        *,
+        filename: str,
+        content_type: str | None,
+        data: bytes,
+    ) -> dict[str, Any]:
+        self.get_agent(agent_id)
+        clean_name = safe_filename(filename)
+        validate_attachment(clean_name, data)
+        resolved_type = normalized_content_type(clean_name, content_type)
+        record = self.store.add_attachment(
+            agent_id=agent_id,
+            filename=clean_name,
+            content_type=resolved_type,
+            size_bytes=len(data),
+            storage_path="pending",
+            extracted_text=extract_text(clean_name, data),
+        )
+        destination = self.upload_dir / f"{record['attachment_id']}{Path(clean_name).suffix.lower()}"
+        destination.write_bytes(data)
+        self.store.set_attachment_path(record["attachment_id"], str(destination))
+        record["storage_path"] = str(destination)
+        return public_attachment(record)
+
     def chat(
-        self, agent_id: str, message: str, provider: str = "deterministic"
+        self,
+        agent_id: str,
+        message: str,
+        provider: str = "deterministic",
+        attachment_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         agent = self.get_agent(agent_id)
         clean_message = message.strip()
-        if not clean_message:
-            raise ValueError("message cannot be empty")
+        ids = list(dict.fromkeys(attachment_ids or []))
+        if len(ids) > MAX_ATTACHMENTS_PER_MESSAGE:
+            raise ValueError("a message can include at most 5 attachments")
+        attachments = self.store.get_attachments(agent_id, ids)
+        if not clean_message and not attachments:
+            raise ValueError("message or attachment is required")
 
         runtime = self._resolve_chat_runtime(provider)
+        public_attachments = [public_attachment(item) for item in attachments]
         user_message = self.store.add_message(
             agent_id=agent_id,
             role="user",
             content=clean_message,
             provider=runtime.provider_name,
+            attachments=public_attachments,
         )
         history = self.store.list_messages(agent_id)
         try:
             content = runtime.respond(
-                agent=agent, message=clean_message, history=history
+                agent=agent,
+                message=clean_message,
+                history=history,
+                attachments=attachments,
             )
         except Exception as exc:
             if runtime.provider_name == "openai":

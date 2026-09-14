@@ -60,7 +60,12 @@
             </div>
             <div id="message-list" class="message-list" aria-live="polite"></div>
             <form id="message-form" class="composer">
-              <textarea id="message-input" rows="2" maxlength="8000" placeholder="Message this agent" required></textarea>
+              <input id="attachment-input" type="file" multiple hidden accept=".txt,.md,.csv,.json,.yaml,.yml,.pdf,.png,.jpg,.jpeg,.webp,.docx,.pptx,.xlsx">
+              <button type="button" id="attach-button" class="attach-button" title="Attach files">Attach</button>
+              <div class="composer-content">
+                <div id="pending-attachments" class="pending-attachments hidden"></div>
+                <textarea id="message-input" rows="2" maxlength="8000" placeholder="Message this agent"></textarea>
+              </div>
               <button type="submit" id="send-button">Send</button>
             </form>
           </section>
