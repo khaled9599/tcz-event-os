@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TCZ Agent Control Room</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="agent-sidebar">
+      <div class="brand-block">
+        <div class="brand-mark">TCZ</div>
+        <div>
+          <strong>Event OS</strong>
+          <span>Agent Control Room</span>
+        </div>
+      </div>
+
+      <div class="sidebar-label">
+        <span>Agents</span>
+        <span id="agent-count">0</span>
+      </div>
+      <nav id="agent-list" class="agent-list" aria-label="TCZ agents"></nav>
+
+      <div class="system-state">
+        <span class="signal" id="system-signal"></span>
+        <div>
+          <strong id="system-label">Connecting</strong>
+          <span id="system-detail">Local runtime</span>
+        </div>
+      </div>
+    </aside>
+
+    <section class="workspace">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">Jotun KANVA</span>
+          <h1 id="workspace-title">Executive Producer</h1>
+        </div>
+        <div class="mode-tabs" role="tablist" aria-label="Workspace mode">
+          <button class="tab-button active" data-tab="chat" role="tab">Conversation</button>
+          <button class="tab-button" data-tab="workflow" role="tab">Workflow</button>
+        </div>
+      </header>
+
+      <div class="workspace-body">
+        <main class="primary-panel">
+          <section id="chat-view" class="view active" aria-label="Agent conversation">
+            <div class="conversation-heading">
+              <div class="agent-avatar large" id="active-agent-avatar">EP</div>
+              <div>
+                <h2 id="active-agent-name">Executive Producer</h2>
+                <p id="active-agent-department">Orchestration</p>
+              </div>
+              <label class="live-toggle">
+                <input type="checkbox" id="live-model-toggle">
+                <span>Live model</span>
+              </label>
+            </div>
+            <div id="message-list" class="message-list" aria-live="polite"></div>
+            <form id="message-form" class="composer">
+              <textarea id="message-input" rows="2" maxlength="8000" placeholder="Message this agent" required></textarea>
+              <button type="submit" id="send-button">Send</button>
+            </form>
+          </section>
+
+          <section id="workflow-view" class="view" aria-label="Workflow control">
+            <div class="workflow-toolbar">
+              <div>
+                <span class="eyebrow">Controlled change</span>
+                <h2>Entrance height 4.2m to 5.5m</h2>
+              </div>
+              <div class="workflow-actions">
+                <label>
+                  Stop after
+                  <select id="workflow-target">
+                    <option value="T-BLENDER">Blender package</option>
+                    <option value="T-JUDGE">Independent judge</option>
+                    <option value="T-SPATIAL">Spatial review</option>
+                    <option value="T-PRODUCTION">Production review</option>
+                    <option value="T-RIGGING">Rigging review</option>
+                  </select>
+                </label>
+                <button id="start-workflow" type="button">Start workflow</button>
+              </div>
+            </div>
+
+            <div id="run-empty" class="empty-state">
+              <strong>No active run</strong>
+              <span>Start the Jotun workflow to create a controlled change run.</span>
+            </div>
+
+            <div id="run-content" class="run-content hidden">
+              <div class="run-summary">
+                <div>
+                  <span class="eyebrow">Current run</span>
+                  <strong id="run-id"></strong>
+                </div>
+                <span id="run-phase" class="phase-badge"></span>
+                <select id="run-select" aria-label="Previous runs"></select>
+              </div>
+
+              <section id="approval-section" class="approval-section hidden">
+                <div class="section-heading">
+                  <h3>Approval inbox</h3>
+                  <span id="approval-count"></span>
+                </div>
+                <div id="approval-list"></div>
+              </section>
+
+              <section class="timeline-section">
+                <div class="section-heading">
+                  <h3>Task graph</h3>
+                  <span id="task-progress"></span>
+                </div>
+                <div id="task-timeline" class="task-timeline"></div>
+              </section>
+
+              <section class="event-section">
+                <div class="section-heading">
+                  <h3>Run history</h3>
+                  <span>Append only</span>
+                </div>
+                <div id="event-list" class="event-list"></div>
+              </section>
+            </div>
+          </section>
+        </main>
+
+        <aside class="inspector">
+          <div id="agent-inspector">
+            <div class="inspector-heading">
+              <span class="eyebrow">Authority profile</span>
+              <span id="agent-status" class="status-label"></span>
+            </div>
+            <p id="agent-mission" class="mission"></p>
+
+            <section class="inspector-section">
+              <h3>Owns</h3>
+              <div id="agent-owns" class="tag-list"></div>
+            </section>
+            <section class="inspector-section">
+              <h3>Skills</h3>
+              <div id="agent-skills" class="stack-list"></div>
+            </section>
+            <section class="inspector-section">
+              <h3>Tools</h3>
+              <div id="agent-tools" class="tag-list"></div>
+            </section>
+            <section class="inspector-section warning-section">
+              <h3>Cannot do</h3>
+              <div id="agent-restrictions" class="stack-list"></div>
+            </section>
+          </div>
+
+          <div id="run-inspector" class="hidden">
+            <div class="inspector-heading">
+              <span class="eyebrow">Canonical state</span>
+              <span id="state-status" class="status-label">No commit</span>
+            </div>
+            <div id="canonical-state" class="state-grid"></div>
+            <section class="inspector-section">
+              <h3>Selected result</h3>
+              <pre id="result-detail" class="result-detail">Select a completed task.</pre>
+            </section>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

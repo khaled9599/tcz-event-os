@@ -303,6 +303,73 @@ class DeterministicRiggingRuntime:
         )
 
 
+class DeterministicBlenderRuntime:
+    """Offline Blender production package for model/update validation planning."""
+
+    def execute(self, request: AgentExecutionRequest) -> AgentResult:
+        task = request.task
+        state = request.context.authoritative_state
+        proposed = state.get("proposed", {})
+        spatial_output = request.context.prior_outputs.get("T-SPATIAL", {}).get("outputs", {})
+        production_output = request.context.prior_outputs.get("T-PRODUCTION", {}).get("outputs", {})
+        rigging_output = request.context.prior_outputs.get("T-RIGGING", {}).get("outputs", {})
+        height_mm = spatial_output.get("height_mm", proposed.get("height_mm"))
+        object_id = task.object_id or proposed.get("object_id")
+
+        outputs = {
+            "blender_package": {
+                "status": "ready_for_blender_adapter",
+                "object_id": object_id,
+                "target_height_mm": height_mm,
+                "source_height_delta_mm": spatial_output.get("height_delta_mm"),
+                "scene_actions": [
+                    "locate canonical entrance object KANVA_ENTRANCE_01",
+                    "scale or rebuild vertical entrance geometry to 5500mm",
+                    "preserve approved clear opening and design intent markers",
+                    "mark prior renders and measurements stale until regenerated",
+                ],
+            },
+            "validation_plan": [
+                "measure final model height equals 5500mm",
+                "confirm canonical object ID remains KANVA_ENTRANCE_01",
+                "confirm visual clear opening is retained",
+                "capture render-validation evidence for judge review",
+            ],
+            "evidence_package": {
+                "context_id": request.context.context_id,
+                "requires_real_blender_run": True,
+                "expected_artifacts": [
+                    "updated .blend scene",
+                    "dimension validation report",
+                    "front elevation render",
+                    "judge evidence manifest",
+                ],
+            },
+            "upstream_reviews": {
+                "production_status": production_output.get("buildability_review", {}).get("status"),
+                "rigging_status": rigging_output.get("rigging_review", {}).get("status"),
+                "rigging_blockers": rigging_output.get("blocked_until", []),
+            },
+            "context_id": request.context.context_id,
+        }
+        return AgentResult(
+            task_id=task.task_id,
+            agent_id=task.assigned_agent,
+            summary=f"Blender package prepared for {object_id} at {height_mm}mm without mutating scene files.",
+            outputs=outputs,
+            evidence_refs=[request.context.context_id],
+            assumptions=[
+                "This deterministic phase does not open or mutate Blender scene files.",
+                "Real geometry and render artifacts remain pending until the Blender adapter runs.",
+            ],
+            risks=[
+                "Visual evidence remains provisional until a real Blender measurement/render is produced.",
+                "Rigging blockers must stay visible to the judge and downstream release gates.",
+            ],
+            requires_human_decision=False,
+        )
+
+
 class DelegatingAgentRuntime:
     """Route selected tasks to a specialist runtime and keep the rest deterministic."""
 

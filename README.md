@@ -52,8 +52,10 @@ Phase 1 agents now reference their skills directly in their charters. Specialist
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e '.[dev]'
+pip install -e '.[dev,api,openai,agents]'
+cp .env.example .env
 pytest
+tcz-control-room
 python examples/jotun_kanva/run_vertical_slice.py
 python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --auto-approve-demo
 python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --approval-file work/jotun_approvals.json
@@ -64,7 +66,15 @@ python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --o
 python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --until-task T-SPATIAL --output full --output-file work/spatial_chain_result.json
 python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --until-task T-PRODUCTION --approval-file work/production_approvals.json
 python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --until-task T-RIGGING --approval-file work/rigging_approvals.json
+python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --until-task T-BLENDER --approval-file work/blender_approvals.json
 ```
+
+The Agent Control Room opens at `http://127.0.0.1:8000`. It includes the agent roster,
+advisory conversations, controlled workflow runs, L2/L3 approval decisions, task results,
+event history, and the latest committed canonical state. It starts in deterministic mode,
+so an API key is not required. Set `OPENAI_API_KEY` before launch to enable the optional
+live-model conversation toggle; API secrets remain on the server. Leave `OPENAI_API_KEY`
+empty in `.env` to keep the entire interface in deterministic offline mode.
 
 The Jotun vertical slice demonstrates controlled change, impact detection, QA, approval policy, and append-only event history.
 

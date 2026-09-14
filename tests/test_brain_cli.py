@@ -140,3 +140,35 @@ def test_cli_pauses_at_rigging_safety_gate_then_resumes(tmp_path):
     assert rigging.outputs["approval_gate"]["level"] == "L3"
     assert rigging.outputs["rigging_review"]["status"] == "qualified_signoff_required"
     assert "qualified rigging or structural signoff is recorded" in rigging.outputs["blocked_until"]
+
+
+def test_cli_runs_through_blender_package_after_approvals(tmp_path):
+    approval_file = tmp_path / "blender_approvals.json"
+    result = run_scenario(SCENARIO, until_task="T-BLENDER", approval_file=approval_file)
+
+    assert result.run.phase == RunPhase.APPROVE
+    assert result.committed_state is None
+    assert [packet.required_level for packet in result.approvals] == ["L2", "L3"]
+
+    data = json.loads(approval_file.read_text())
+    data["decisions"] = {
+        approval_id: "approved"
+        for approval_id in data["decisions"]
+    }
+    approval_file.write_text(json.dumps(data))
+
+    resumed = resume_approval_file(approval_file)
+    blender = resumed.agent_results["T-BLENDER"]
+
+    assert resumed.run.phase == RunPhase.COMPLETED
+    assert list(resumed.agent_results) == [
+        "T-IMPACT",
+        "T-SPATIAL",
+        "T-PRODUCTION",
+        "T-RIGGING",
+        "T-BLENDER",
+    ]
+    assert blender.outputs["blender_package"]["object_id"] == "KANVA_ENTRANCE_01"
+    assert blender.outputs["blender_package"]["target_height_mm"] == 5500
+    assert blender.outputs["evidence_package"]["requires_real_blender_run"] is True
+    assert blender.outputs["upstream_reviews"]["rigging_status"] == "qualified_signoff_required"

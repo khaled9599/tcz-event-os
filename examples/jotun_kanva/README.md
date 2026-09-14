@@ -66,3 +66,11 @@ python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --u
 ```
 
 This pauses with L2 and L3 approval packets before executing production and rigging reviews.
+
+Run through the Blender production package:
+
+```bash
+python -m brain.runtime.cli examples/jotun_kanva/change_entrance_height.yaml --until-task T-BLENDER --approval-file work/blender_approvals.json
+```
+
+After approvals, this prepares a side-effect-free Blender package with the target height, scene actions, validation plan, and judge-ready evidence requirements.
